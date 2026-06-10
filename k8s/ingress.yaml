@@ -1,0 +1,42 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-gateway
+  namespace: ai-gateway
+  labels:
+    app.kubernetes.io/name: ai-gateway
+  annotations:
+    # TLS 1.3 termination via cert-manager.
+    cert-manager.io/cluster-issuer: 'letsencrypt-prod'
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/ssl-protocols: 'TLSv1.3 TLSv1.2'
+    # Streaming responses (SSE) must not be buffered, and need generous timeouts.
+    nginx.ingress.kubernetes.io/proxy-buffering: 'off'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '300'
+    # Body size cap mirrors MAX_REQUEST_BODY_BYTES (10 MiB).
+    nginx.ingress.kubernetes.io/proxy-body-size: '10m'
+    # Edge rate limiting as defence-in-depth ahead of the app's per-key limiter.
+    nginx.ingress.kubernetes.io/limit-rps: '200'
+    nginx.ingress.kubernetes.io/limit-connections: '100'
+    # CORS for browser-based clients.
+    nginx.ingress.kubernetes.io/enable-cors: 'true'
+    nginx.ingress.kubernetes.io/cors-allow-methods: 'GET, POST, OPTIONS'
+    nginx.ingress.kubernetes.io/cors-allow-headers: 'Authorization, Content-Type, X-Api-Key, X-Request-Id'
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.gateway.example.com
+      secretName: ai-gateway-tls
+  rules:
+    - host: api.gateway.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ai-gateway
+                port:
+                  number: 80
