@@ -1,0 +1,104 @@
+{{- if .Values.cronjobs.createPartition.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-create-partition
+  labels:
+    {{- include "ai-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: maintenance
+spec:
+  schedule: {{ .Values.cronjobs.createPartition.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 300
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+          containers:
+            - name: create-partition
+              image: {{ include "ai-gateway.migrateImage" . }}
+              command: ['npm', 'run', 'partition:create']
+              envFrom:
+                - secretRef:
+                    name: {{ include "ai-gateway.secretName" . }}
+{{- end }}
+{{- if .Values.cronjobs.refreshUsage.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-refresh-usage
+  labels:
+    {{- include "ai-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: maintenance
+spec:
+  schedule: {{ .Values.cronjobs.refreshUsage.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70
+          containers:
+            - name: refresh-usage
+              image: postgres:16-alpine
+              command:
+                - sh
+                - -c
+                - psql "$DATABASE_URL" -c "REFRESH MATERIALIZED VIEW CONCURRENTLY monthly_usage;"
+              envFrom:
+                - secretRef:
+                    name: {{ include "ai-gateway.secretName" . }}
+{{- end }}
+{{- if .Values.cronjobs.pruneLogs.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-prune-logs
+  labels:
+    {{- include "ai-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: maintenance
+spec:
+  schedule: {{ .Values.cronjobs.pruneLogs.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70
+          containers:
+            - name: prune-logs
+              image: postgres:16-alpine
+              command:
+                - sh
+                - -c
+                - >-
+                  psql "$DATABASE_URL" -c
+                  "DO \$\$ DECLARE m text := to_char(now() - interval '6 months', 'YYYY_MM');
+                  BEGIN EXECUTE format('DROP TABLE IF EXISTS request_logs_%s', m); END \$\$;"
+              envFrom:
+                - secretRef:
+                    name: {{ include "ai-gateway.secretName" . }}
+{{- end }}
