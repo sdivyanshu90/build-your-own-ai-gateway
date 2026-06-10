@@ -1,0 +1,111 @@
+# =============================================================================
+# Scheduled maintenance jobs for the partitioned request_logs table and the
+# monthly_usage materialised view.
+# =============================================================================
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-gateway-create-partition
+  namespace: ai-gateway
+  labels:
+    app.kubernetes.io/name: ai-gateway
+    app.kubernetes.io/component: maintenance
+spec:
+  # 03:00 on the 25th of every month — well before month end.
+  schedule: '0 3 25 * *'
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 300
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+          containers:
+            - name: create-partition
+              # Migrator image (Docker `builder` target) — has tsx + scripts.
+              image: ghcr.io/your-org/ai-gateway-migrate:latest
+              command: ['npm', 'run', 'partition:create']
+              envFrom:
+                - secretRef:
+                    name: ai-gateway-secrets
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-gateway-refresh-usage
+  namespace: ai-gateway
+  labels:
+    app.kubernetes.io/name: ai-gateway
+    app.kubernetes.io/component: maintenance
+spec:
+  # Hourly refresh of the monthly_usage materialised view (CONCURRENTLY so reads
+  # are never blocked).
+  schedule: '0 * * * *'
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70 # postgres image's non-root uid
+          containers:
+            - name: refresh-usage
+              image: postgres:16-alpine
+              command:
+                - sh
+                - -c
+                - psql "$DATABASE_URL" -c "REFRESH MATERIALIZED VIEW CONCURRENTLY monthly_usage;"
+              envFrom:
+                - secretRef:
+                    name: ai-gateway-secrets
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-gateway-prune-logs
+  namespace: ai-gateway
+  labels:
+    app.kubernetes.io/name: ai-gateway
+    app.kubernetes.io/component: maintenance
+spec:
+  # 04:00 on the 1st — drop the partition that is now older than the 6-month
+  # retention window (detaching a whole partition is instant, unlike DELETE).
+  schedule: '0 4 1 * *'
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70
+          containers:
+            - name: prune-logs
+              image: postgres:16-alpine
+              command:
+                - sh
+                - -c
+                - >-
+                  psql "$DATABASE_URL" -c
+                  "DO \$\$ DECLARE m text := to_char(now() - interval '6 months', 'YYYY_MM');
+                  BEGIN EXECUTE format('DROP TABLE IF EXISTS request_logs_%s', m); END \$\$;"
+              envFrom:
+                - secretRef:
+                    name: ai-gateway-secrets
