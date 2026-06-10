@@ -1,0 +1,18 @@
+apiVersion: v2
+name: ai-gateway
+description: Production-grade, OpenAI-compatible AI gateway with multi-provider failover, distributed circuit breaking, rate limiting, and a semantic cache.
+type: application
+version: 1.0.0
+appVersion: '1.0.0'
+keywords:
+  - ai
+  - gateway
+  - openai
+  - llm
+  - proxy
+home: https://github.com/your-org/ai-gateway
+sources:
+  - https://github.com/your-org/ai-gateway
+maintainers:
+  - name: Platform Engineering
+    email: info@uniiq.ai
