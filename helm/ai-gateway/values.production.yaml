@@ -1,0 +1,55 @@
+# Production overlay:
+#   helm upgrade --install ai-gateway ./helm/ai-gateway \
+#     -n ai-gateway -f helm/ai-gateway/values.production.yaml \
+#     --set image.tag=$GIT_SHA
+#
+# Secrets come from an external store, NOT this file.
+
+replicaCount: 5
+
+image:
+  pullPolicy: IfNotPresent
+
+config:
+  LOG_LEVEL: info
+  OTEL_ENABLED: 'true'
+  OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector.observability:4318'
+  OTEL_TRACES_SAMPLER_RATIO: '0.1'
+  DATABASE_POOL_MAX: '40'
+
+# Managed externally by the External Secrets Operator / Vault.
+secrets:
+  existingSecret: ai-gateway-secrets
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 384Mi
+  limits:
+    cpu: '2'
+    memory: 768Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 60
+  targetCPUUtilizationPercentage: 65
+  targetRequestsPerSecond: 150
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 60%
+
+ingress:
+  enabled: true
+  host: api.gateway.example.com
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ai-gateway
