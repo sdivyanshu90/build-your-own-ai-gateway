@@ -1,0 +1,51 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ai-gateway
+  namespace: ai-gateway
+  labels:
+    app.kubernetes.io/name: ai-gateway
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ai-gateway
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+    # Scale on CPU first — the gateway is largely I/O bound but TLS + JSON +
+    # token counting consume CPU under load.
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    # Custom RPS metric (requires prometheus-adapter exposing this series,
+    # derived from gateway_http_requests_total). Target ~150 req/s per pod.
+    - type: Pods
+      pods:
+        metric:
+          name: gateway_http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: '150'
+  behavior:
+    scaleUp:
+      # React quickly to traffic spikes.
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+        - type: Pods
+          value: 4
+          periodSeconds: 30
+      selectPolicy: Max
+    scaleDown:
+      # Scale in slowly to avoid flapping and to preserve warm caches/pools.
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 60
