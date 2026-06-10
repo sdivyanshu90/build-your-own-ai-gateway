@@ -1,0 +1,127 @@
+# =============================================================================
+# Development stack: gateway + PostgreSQL + Redis + Adminer.
+#
+# Quickstart:
+#   cp .env.example .env           # then set ENCRYPTION_KEY / ADMIN_API_KEY
+#   docker compose up --build
+#   curl http://localhost:8080/health
+#
+# `migrate` runs the schema migrations once (from the builder image, which has
+# tsx) and the gateway waits for it to complete. `seed` is optional dev data.
+# =============================================================================
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
+      POSTGRES_DB: ai_gateway
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U gateway -d ai_gateway']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'allkeys-lru',
+      ]
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      target: builder
+    command: ['npm', 'run', 'db:migrate']
+    environment:
+      DATABASE_URL: postgres://gateway:gateway@postgres:5432/ai_gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  gateway:
+    build:
+      context: .
+      target: runtime
+    ports:
+      - '8080:8080'
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: info
+      LOG_PRETTY: 'false'
+      HOST: 0.0.0.0
+      PORT: '8080'
+      DATABASE_URL: postgres://gateway:gateway@postgres:5432/ai_gateway
+      REDIS_URL: redis://redis:6379
+      # Dev-only secrets. NEVER use these values in production.
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-dev-admin-token-change-me}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # distroless has no shell/curl — probe with node's global fetch.
+      test:
+        - CMD
+        - /nodejs/bin/node
+        - -e
+        - "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # Optional one-off: `docker compose run --rm seed`
+  seed:
+    build:
+      context: .
+      target: builder
+    command: ['npm', 'run', 'db:seed']
+    environment:
+      DATABASE_URL: postgres://gateway:gateway@postgres:5432/ai_gateway
+      REDIS_URL: redis://redis:6379
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-dev-admin-token-change-me}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    profiles: ['seed']
+
+  adminer:
+    image: adminer:4
+    ports:
+      - '8081:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ['tools']
+
+volumes:
+  pgdata:
+  redisdata:
