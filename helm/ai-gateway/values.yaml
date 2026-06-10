@@ -1,0 +1,125 @@
+# Default values for the ai-gateway chart. Every knob is documented here; the
+# production overlay (values.production.yaml) tightens these for real workloads.
+
+replicaCount: 3
+
+image:
+  repository: ghcr.io/your-org/ai-gateway
+  tag: '' # defaults to .Chart.AppVersion when empty
+  pullPolicy: IfNotPresent
+  # Migrator image (Docker `builder` target) used by the migration hook + cronjob.
+  migrateRepository: ghcr.io/your-org/ai-gateway-migrate
+
+imagePullSecrets: []
+nameOverride: ''
+fullnameOverride: ''
+
+serviceAccount:
+  create: true
+  name: ''
+  annotations: {}
+
+# Non-secret runtime configuration (rendered into the ConfigMap). Anything here
+# becomes an environment variable. See docs/configuration.md for the full list.
+config:
+  NODE_ENV: production
+  LOG_LEVEL: info
+  LOG_PRETTY: 'false'
+  PORT: '8080'
+  TRUST_PROXY: 'true'
+  MAX_REQUEST_BODY_BYTES: '10485760'
+  SHUTDOWN_TIMEOUT_MS: '30000'
+  DATABASE_POOL_MAX: '20'
+  DATABASE_SSL: 'true'
+  REDIS_KEY_PREFIX: 'gw:'
+  AUTH_CACHE_TTL_SECONDS: '30'
+  REGISTRY_CACHE_TTL_SECONDS: '60'
+  PROVIDER_TIMEOUT_MS: '60000'
+  LOAD_BALANCER_STRATEGY: LATENCY_BASED
+  CB_FAILURE_THRESHOLD: '5'
+  CB_TIMEOUT_MS: '30000'
+  RATE_LIMIT_ENABLED: 'true'
+  CACHE_ENABLED: 'true'
+  CACHE_DEFAULT_TTL_SECONDS: '3600'
+  METRICS_ENABLED: 'true'
+  OTEL_ENABLED: 'false'
+  HEALTH_MONITOR_ENABLED: 'true'
+
+# Secrets. Prefer `existingSecret` (managed by External Secrets / Vault). If set,
+# the chart will NOT create a Secret and these inline values are ignored.
+secrets:
+  existingSecret: ''
+  # Inline values are for non-production only — never commit real values.
+  DATABASE_URL: ''
+  REDIS_URL: ''
+  ENCRYPTION_KEY: ''
+  ADMIN_API_KEY: ''
+
+# Run database migrations as a pre-install/pre-upgrade Helm hook Job.
+migrations:
+  enabled: true
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: '1'
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 30
+  targetCPUUtilizationPercentage: 70
+  targetRequestsPerSecond: 150
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  host: api.gateway.example.com
+  tlsSecretName: ai-gateway-tls
+  clusterIssuer: letsencrypt-prod
+  annotations: {}
+
+podAnnotations:
+  prometheus.io/scrape: 'true'
+  prometheus.io/port: '8080'
+  prometheus.io/path: /metrics
+
+terminationGracePeriodSeconds: 40
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ['ALL']
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+cronjobs:
+  createPartition:
+    enabled: true
+    schedule: '0 3 25 * *'
+  refreshUsage:
+    enabled: true
+    schedule: '0 * * * *'
+  pruneLogs:
+    enabled: true
+    schedule: '0 4 1 * *'
