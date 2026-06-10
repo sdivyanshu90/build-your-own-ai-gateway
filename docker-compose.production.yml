@@ -1,0 +1,70 @@
+# =============================================================================
+# Production overrides. Use WITH the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+#
+# Secrets come from an environment file you provide out-of-band (NOT committed):
+#   docker compose --env-file /run/secrets/gateway.env -f ... up -d
+# This file pins resource limits, restart policy, and production logging, and
+# drops the developer tooling (adminer / seed).
+# =============================================================================
+services:
+  postgres:
+    # In production, prefer a managed PostgreSQL; this local one is for parity.
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+
+  redis:
+    restart: always
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --maxmemory
+      - 1gb
+      - --maxmemory-policy
+      - allkeys-lru
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1200M
+
+  gateway:
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      LOG_PRETTY: 'false'
+      DATABASE_SSL: 'true'
+      METRICS_ENABLED: 'true'
+      OTEL_ENABLED: 'true'
+      # Secrets MUST be supplied via the env file — no defaults here.
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+    restart: always
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+      update_config:
+        order: start-first
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: any
+
+  # Tooling images are not part of the production stack.
+  adminer:
+    profiles: ['disabled']
+  seed:
+    profiles: ['disabled']
