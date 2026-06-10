@@ -1,0 +1,40 @@
+# Internal ClusterIP service — used by the Ingress and in-cluster clients.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-gateway
+  namespace: ai-gateway
+  labels:
+    app.kubernetes.io/name: ai-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ai-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+---
+# Optional external LoadBalancer (where an Ingress controller is not used).
+# Disable this in favour of the Ingress for TLS + rate-limit annotations.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-gateway-lb
+  namespace: ai-gateway
+  labels:
+    app.kubernetes.io/name: ai-gateway
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: 'nlb'
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: 'true'
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/name: ai-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
