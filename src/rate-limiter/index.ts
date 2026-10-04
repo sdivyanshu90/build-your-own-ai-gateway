@@ -70,19 +70,27 @@ local burstWindow = tonumber(ARGV[9])
 local burstLimit = tonumber(ARGV[10])
 
 redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, now - rpmWindow)
-redis.call('ZREMRANGEBYSCORE', KEYS[2], 0, now - tpmWindow)
 if burstEnabled == 1 then
   redis.call('ZREMRANGEBYSCORE', KEYS[3], 0, now - burstWindow)
 end
 
 local rpmCount = redis.call('ZCARD', KEYS[1])
 
-local tpmSum = 0
-local members = redis.call('ZRANGE', KEYS[2], 0, -1)
-for _, m in ipairs(members) do
-  local t = tonumber(string.match(m, '([^:]+)$'))
-  if t then tpmSum = tpmSum + t end
+-- TPM: keep a running sum (KEYS[4]) and only touch the members that fall out of
+-- the window, so the cost per check is O(expired) rather than O(requests in
+-- window). Summing the whole set on every call made each check cost grow with
+-- the request rate (quadratic overall).
+local tpmSum = tonumber(redis.call('GET', KEYS[4]) or '0')
+local expired = redis.call('ZRANGEBYSCORE', KEYS[2], 0, now - tpmWindow)
+if #expired > 0 then
+  for _, m in ipairs(expired) do
+    local t = tonumber(string.match(m, '([^:]+)$'))
+    if t then tpmSum = tpmSum - t end
+  end
+  redis.call('ZREMRANGEBYSCORE', KEYS[2], 0, now - tpmWindow)
 end
+-- An empty window means a zero sum; this also bounds any drift if either key was evicted.
+if tpmSum < 0 or redis.call('ZCARD', KEYS[2]) == 0 then tpmSum = 0 end
 
 local burstCount = 0
 if burstEnabled == 1 then
@@ -107,6 +115,7 @@ if allowed == 1 then
   redis.call('PEXPIRE', KEYS[1], rpmWindow + 1000)
   redis.call('ZADD', KEYS[2], now, member .. ':' .. reqTokens)
   redis.call('PEXPIRE', KEYS[2], tpmWindow + 1000)
+  redis.call('SET', KEYS[4], tpmSum + reqTokens, 'PX', tpmWindow + 1000)
   if burstEnabled == 1 then
     redis.call('ZADD', KEYS[3], now, member)
     redis.call('PEXPIRE', KEYS[3], burstWindow + 1000)
@@ -197,6 +206,7 @@ export class RateLimiter {
         redisKeys.rateLimitRpm(apiKeyId),
         redisKeys.rateLimitTpm(apiKeyId),
         redisKeys.rateLimitBurst(apiKeyId),
+        redisKeys.rateLimitTpmSum(apiKeyId),
       ],
       [
         nowMs,
