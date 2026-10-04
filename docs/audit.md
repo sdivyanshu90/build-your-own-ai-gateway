@@ -51,3 +51,10 @@ on every replica; Helm hook ordering on first install; streaming strategy quirks
 Constant-time admin-key comparison (`timingSafeEqual` hashes both sides); AES-256-GCM usage (random 96-bit IV, 128-bit tag, tamper detection tested); API keys stored only as SHA-256;
 request-id sanitisation; body-size limit (413); parameterised SQL everywhere; atomicity of the limiter under concurrency (measured, exact counts at 100-way concurrency);
 the OpenAI error envelope; partition function idempotency; additive enum migration pattern and the no-transaction directive.
+
+## Additional fixes made after the first draft of this report
+
+| Sev    | Where                                      | Problem                                                                                                                                                                                                                | Fix                                                                 |
+| ------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Medium | `src/routes/http.ts` (`clientAbortSignal`) | Close listener registered after auth/rate limiting: a client that disconnected while queued never aborted, so the upstream was still called (benchmark: 15 upstream requests in flight 8 s after all clients aborted). | `fix(routes): abort immediately if the client already disconnected` |
+| Medium | `src/providers/anthropic.ts` (stream)      | Prompt tokens read from the wrong JSON path (0 in every stream).                                                                                                                                                       | `1ef224b` (listed as #5 above)                                      |

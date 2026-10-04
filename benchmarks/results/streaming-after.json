@@ -1,0 +1,238 @@
+{
+  "meta": {
+    "date": "2026-10-04T20:38:30.244Z",
+    "node": "v21.5.0",
+    "host": {
+      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+      "cpus": 8,
+      "totalMemMB": 5928
+    },
+    "autocannon": "8.0.0"
+  },
+  "mockLatencyMs": 20,
+  "streamTokens": 20,
+  "streamIntervalMs": 5,
+  "n": 400,
+  "runs": {
+    "directOpenAI": {
+      "n": 400,
+      "concurrency": 16,
+      "failures": 0,
+      "ttfbMs": {
+        "n": 400,
+        "mean": 88.58,
+        "p50": 63.66,
+        "p90": 203.82,
+        "p95": 256.06,
+        "p99": 405.61,
+        "max": 457.83
+      },
+      "ttftMs": {
+        "n": 400,
+        "mean": 88.73,
+        "p50": 64.01,
+        "p90": 204.22,
+        "p95": 256.11,
+        "p99": 405.65,
+        "max": 457.86
+      },
+      "totalMs": {
+        "n": 400,
+        "mean": 251.93,
+        "p50": 221.1,
+        "p90": 412.96,
+        "p95": 467.86,
+        "p99": 748.82,
+        "max": 797.22
+      }
+    },
+    "gatewayOpenAI": {
+      "n": 400,
+      "concurrency": 16,
+      "failures": 0,
+      "ttfbMs": {
+        "n": 400,
+        "mean": 466.63,
+        "p50": 275.97,
+        "p90": 1253.34,
+        "p95": 1828.16,
+        "p99": 1958.47,
+        "max": 2168.29
+      },
+      "ttftMs": {
+        "n": 400,
+        "mean": 466.93,
+        "p50": 276.2,
+        "p90": 1253.56,
+        "p95": 1828.19,
+        "p99": 1958.79,
+        "max": 2168.41
+      },
+      "totalMs": {
+        "n": 400,
+        "mean": 2012.08,
+        "p50": 525.15,
+        "p90": 1890.39,
+        "p95": 2535.4,
+        "p99": 32632.78,
+        "max": 32929.21
+      }
+    },
+    "directAnthropic": {
+      "n": 400,
+      "concurrency": 16,
+      "failures": 0,
+      "ttfbMs": {
+        "n": 400,
+        "mean": 85.48,
+        "p50": 32.16,
+        "p90": 192.75,
+        "p95": 432.2,
+        "p99": 680.48,
+        "max": 804.18
+      },
+      "ttftMs": {
+        "n": 400,
+        "mean": 85.48,
+        "p50": 32.16,
+        "p90": 192.75,
+        "p95": 432.2,
+        "p99": 680.48,
+        "max": 804.18
+      },
+      "totalMs": {
+        "n": 400,
+        "mean": 216.38,
+        "p50": 158.71,
+        "p90": 394.33,
+        "p95": 569.26,
+        "p99": 680.62,
+        "max": 814.04
+      }
+    },
+    "gatewayAnthropic": {
+      "n": 400,
+      "concurrency": 16,
+      "failures": 2,
+      "ttfbMs": {
+        "n": 398,
+        "mean": 557.07,
+        "p50": 250.49,
+        "p90": 906.46,
+        "p95": 1481.03,
+        "p99": 2071.34,
+        "max": 31156.12
+      },
+      "ttftMs": {
+        "n": 398,
+        "mean": 557.56,
+        "p50": 251.31,
+        "p90": 906.67,
+        "p95": 1482.84,
+        "p99": 2074.23,
+        "max": 31161.4
+      },
+      "totalMs": {
+        "n": 398,
+        "mean": 1788.85,
+        "p50": 485.28,
+        "p90": 1473.64,
+        "p95": 1959.3,
+        "p99": 30391.86,
+        "max": 31161.91
+      }
+    },
+    "directOpenAI_c1": {
+      "n": 150,
+      "concurrency": 1,
+      "failures": 0,
+      "ttfbMs": {
+        "n": 150,
+        "mean": 211.81,
+        "p50": 30.46,
+        "p90": 103.47,
+        "p95": 443.47,
+        "p99": 3318.66,
+        "max": 17542.71
+      },
+      "ttftMs": {
+        "n": 150,
+        "mean": 212.62,
+        "p50": 30.52,
+        "p90": 103.91,
+        "p95": 446.21,
+        "p99": 3318.87,
+        "max": 17583.25
+      },
+      "totalMs": {
+        "n": 150,
+        "mean": 398.56,
+        "p50": 157.37,
+        "p90": 355.39,
+        "p95": 840.26,
+        "p99": 4775.93,
+        "max": 18696.24
+      }
+    },
+    "gatewayOpenAI_c1": {
+      "n": 150,
+      "concurrency": 1,
+      "failures": 0,
+      "ttfbMs": {
+        "n": 150,
+        "mean": 173.68,
+        "p50": 59.73,
+        "p90": 204.3,
+        "p95": 359.54,
+        "p99": 1743.45,
+        "max": 10384.3
+      },
+      "ttftMs": {
+        "n": 150,
+        "mean": 175.03,
+        "p50": 59.77,
+        "p90": 204.82,
+        "p95": 361.49,
+        "p99": 1747.44,
+        "max": 10384.97
+      },
+      "totalMs": {
+        "n": 150,
+        "mean": 458.1,
+        "p50": 194.28,
+        "p90": 388.71,
+        "p95": 713.83,
+        "p99": 10465.25,
+        "max": 19111.67
+      }
+    }
+  },
+  "overheadP50Ms": {
+    "openai_c16": {
+      "ttfb": 212.31,
+      "ttft": 212.19,
+      "total": 304.05
+    },
+    "anthropic_c16": {
+      "ttfb": 218.33,
+      "ttft": 219.15,
+      "total": 326.57
+    },
+    "openai_c1": {
+      "ttfb": 29.27,
+      "ttft": 29.25,
+      "total": 36.91
+    }
+  },
+  "metricsBefore": [
+    "gateway_http_requests_total{method=\"POST\",route=\"/v1/chat/completions\",status_code=\"200\",service=\"ai-gateway\"} 1285",
+    "gateway_http_requests_total{method=\"POST\",route=\"/v1/chat/completions\",status_code=\"503\",service=\"ai-gateway\"} 96",
+    "gateway_in_flight_requests{service=\"ai-gateway\"} -28"
+  ],
+  "metricsAfter": [
+    "gateway_http_requests_total{method=\"POST\",route=\"/v1/chat/completions\",status_code=\"200\",service=\"ai-gateway\"} 2233",
+    "gateway_http_requests_total{method=\"POST\",route=\"/v1/chat/completions\",status_code=\"503\",service=\"ai-gateway\"} 98",
+    "gateway_in_flight_requests{service=\"ai-gateway\"} -30"
+  ],
+  "streamsSent": 1900
+}

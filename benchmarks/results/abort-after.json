@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "date": "2026-10-04T20:45:19.695Z",
+    "node": "v21.5.0",
+    "host": {
+      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+      "cpus": 8,
+      "totalMemMB": 5928
+    },
+    "autocannon": "8.0.0"
+  },
+  "cases": {
+    "stream_abort_mid_generation": {
+      "clients": 40,
+      "abortAfterMs": 400,
+      "upstreamInflightAtAbort": 40,
+      "upstreamInflightZeroAfterMs": 315,
+      "gatewayInFlightGaugeBefore": null,
+      "gatewayInFlightGaugeAfter": null
+    },
+    "nonstream_abort_while_upstream_slow": {
+      "clients": 40,
+      "abortAfterMs": 300,
+      "upstreamInflightAtAbort": 0,
+      "upstreamInflightZeroAfterMs": 326,
+      "gatewayInFlightGaugeBefore": null,
+      "gatewayInFlightGaugeAfter": null
+    }
+  }
+}

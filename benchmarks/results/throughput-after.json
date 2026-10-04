@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "date": "2026-10-04T20:40:01.389Z",
+    "node": "v21.5.0",
+    "host": {
+      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+      "cpus": 8,
+      "totalMemMB": 5928
+    },
+    "autocannon": "8.0.0"
+  },
+  "mockLatencyMs": 20,
+  "steps": [
+    {
+      "connections": 8,
+      "durationS": 15,
+      "rps": 20,
+      "requests": 179,
+      "non2xx": 39,
+      "errors": 1,
+      "timeouts": 1,
+      "latencyMs": {
+        "mean": 1385.01,
+        "p50": 219,
+        "p90": 857,
+        "p97_5": 27306,
+        "p99": 27329,
+        "p99_9": 27329,
+        "max": 27329
+      },
+      "loadgenCpuPct": 30,
+      "gatewayContainer": {
+        "samples": 2,
+        "maxMemMiB": 86.3,
+        "avgCpuPct": 59.1,
+        "maxCpuPct": 114.88
+      },
+      "mockCpuPct": 4,
+      "redisCommandStats": {
+        "get": {
+          "calls": 1069,
+          "usecPerCall": 11.2
+        },
+        "expire": {
+          "calls": 416,
+          "usecPerCall": 16.26
+        },
+        "mget": {
+          "calls": 215,
+          "usecPerCall": 30.44
+        },
+        "incrbyfloat": {
+          "calls": 209,
+          "usecPerCall": 18.43
+        },
+        "evalsha": {
+          "calls": 854,
+          "usecPerCall": 417.29
+        },
+        "set": {
+          "calls": 432,
+          "usecPerCall": 18.58
+        }
+      },
+      "pgCommitsDuringStep": 233
+    }
+  ],
+  "stoppedBecause": "errors >1% at c=8",
+  "maxRps": 20
+}

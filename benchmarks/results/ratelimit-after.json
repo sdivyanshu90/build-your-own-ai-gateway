@@ -1,0 +1,71 @@
+{
+  "meta": {
+    "date": "2026-10-04T20:44:21.913Z",
+    "node": "v21.5.0",
+    "host": {
+      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+      "cpus": 8,
+      "totalMemMB": 5928
+    },
+    "autocannon": "8.0.0"
+  },
+  "cases": [
+    {
+      "total": 300,
+      "concurrency": 100,
+      "codes": {
+        "200": 60,
+        "429": 240
+      },
+      "retryAfterSample": "60",
+      "wallMs": 2853,
+      "rpmLimit": 60,
+      "allowed": 60,
+      "rejected429": 240,
+      "exact": true
+    },
+    {
+      "total": 1000,
+      "concurrency": 200,
+      "codes": {
+        "200": 100,
+        "429": 900
+      },
+      "retryAfterSample": "60",
+      "wallMs": 11055,
+      "rpmLimit": 100,
+      "allowed": 100,
+      "rejected429": 900,
+      "exact": true
+    },
+    {
+      "total": 2000,
+      "concurrency": 200,
+      "codes": {
+        "200": 600,
+        "429": 1355,
+        "503": 45
+      },
+      "retryAfterSample": "24",
+      "wallMs": 44505,
+      "rpmLimit": 600,
+      "allowed": 600,
+      "rejected429": 1355,
+      "exact": true
+    },
+    {
+      "total": 20,
+      "concurrency": 4,
+      "codes": {
+        "200": 3,
+        "429": 17
+      },
+      "retryAfterSample": "60",
+      "wallMs": 298,
+      "tpmLimit": 5000,
+      "note": "~1000-token prompts against a 5000 TPM budget",
+      "allowed": 3
+    }
+  ],
+  "burstReasonObserved": "see README: burst window cannot bind before RPM (analysis in docs/RATE-LIMITING.md)"
+}
