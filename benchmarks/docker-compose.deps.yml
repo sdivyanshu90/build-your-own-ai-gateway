@@ -8,6 +8,7 @@ services:
     image: postgres:16-alpine
     mem_limit: 512m
     cpus: 1.5
+    cpuset: '0,1'
     environment:
       POSTGRES_USER: gateway
       POSTGRES_PASSWORD: gateway
@@ -24,6 +25,7 @@ services:
     image: redis:7-alpine
     mem_limit: 256m
     cpus: 1
+    cpuset: '0,1'
     command:
       [
         'redis-server',
@@ -34,7 +36,7 @@ services:
         '--maxmemory',
         '200mb',
         '--maxmemory-policy',
-        'allkeys-lru',
+        'volatile-lru',
       ]
     ports: ['127.0.0.1:56379:6379']
     healthcheck:
