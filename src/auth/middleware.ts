@@ -36,6 +36,8 @@ export interface GatewayContext {
   readonly monthlyBudgetUsd: number | null;
   /** Allow-list of model ids; null/empty means all models permitted. */
   readonly allowedModels: readonly string[] | null;
+  /** Key expiry as epoch ms (null = never). Carried so cached hits still honour it. */
+  readonly expiresAtMs?: number | null;
 }
 
 declare module 'fastify' {
@@ -47,7 +49,7 @@ declare module 'fastify' {
 /** Extract the raw key from the Authorization or x-api-key header. */
 export function extractApiKey(headers: FastifyRequest['headers']): string | null {
   const auth = headers.authorization;
-  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+  if (typeof auth === 'string' && /^bearer /iu.test(auth)) {
     const token = auth.slice('Bearer '.length).trim();
     return token.length > 0 ? token : null;
   }
@@ -73,8 +75,16 @@ export async function authenticateKey(rawKey: string): Promise<GatewayContext> {
   try {
     const cached = await redis.get(cacheKey);
     if (cached !== null) {
-      await redis.expire(cacheKey, config.AUTH_CACHE_TTL_SECONDS);
-      return JSON.parse(cached) as GatewayContext;
+      const context = JSON.parse(cached) as GatewayContext;
+      // The TTL slides on every hit, so a busy key never leaves the cache; the
+      // expiry must therefore be enforced here, not just on the DB path.
+      if (typeof context.expiresAtMs === 'number' && context.expiresAtMs <= Date.now()) {
+        // Drop the stale entry and fall through: the DB path rejects it.
+        await redis.del(cacheKey);
+      } else {
+        await redis.expire(cacheKey, config.AUTH_CACHE_TTL_SECONDS);
+        return context;
+      }
     }
   } catch (error) {
     logger.warn({ err: toErrorMessage(error) }, 'Auth cache read failed; falling back to DB');
@@ -99,6 +109,7 @@ export async function authenticateKey(rawKey: string): Promise<GatewayContext> {
     tpmLimit: row.tpmLimit,
     monthlyBudgetUsd: row.monthlyBudgetUsd !== null ? Number(row.monthlyBudgetUsd) : null,
     allowedModels: row.allowedModels ?? null,
+    expiresAtMs: row.expiresAt !== null ? row.expiresAt.getTime() : null,
   };
 
   // Populate the cache (best-effort).
