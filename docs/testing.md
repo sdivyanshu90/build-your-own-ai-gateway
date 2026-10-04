@@ -15,11 +15,11 @@ Results on 2026-10-04 (Node 21.5 on the dev machine; CI uses Node 22):
 
 | Suite                           | Before this branch                                                                           | After                         |
 | ------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------- |
-| Unit                            | 75 passed (11 files)                                                                         | {{UNIT}}                      |
-| Integration + e2e + security    | 47 passed / 7 failed (54) via testcontainers (`tests/integration/completions.test.ts`: 500s) | {{INTEG}}                     |
+| Unit                            | 75 passed (11 files)                                                                         | 137 passed (19 files); stable over 3 consecutive runs, one earlier run on a heavily loaded machine had 2 failures that were not diagnosed and did not reproduce (the suite contains timing-sensitive tests: event-loop blocking, client abort)                      |
+| Integration + e2e + security    | 47 passed / 7 failed (54) via testcontainers (`tests/integration/completions.test.ts`: 500s) | 66 passed (9 files) against pre-started Postgres/Redis; `main` passes 54/54 the same way (the 7 testcontainers failures at baseline did not reproduce with pre-started dependencies, so they are attributed to the container start-up environment, not to a code defect)                     |
 | `tsc --noEmit`, `eslint`, build | pass                                                                                         | pass                          |
 | `prettier --check`              | **fail** (9 Helm template files)                                                             | pass                          |
-| Coverage gate                   | **fail** (35.67% lines vs 95%)                                                               | pass at the ratchet ({{COV}}) |
+| Coverage gate                   | **fail** (35.67% lines vs 95%)                                                               | pass at the ratchet (54.9% lines / 71.4% branches / 69.4% functions) |
 
 ## Running
 
