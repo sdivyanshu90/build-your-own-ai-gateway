@@ -37,6 +37,9 @@ import { OpenAIProvider } from './openai.js';
  * model id that providers actually serve. Direct matches take precedence, so
  * these only apply when the requested id is not itself served.
  */
+/** After a failed refresh, wait this long before trying the database again. */
+const REFRESH_RETRY_MS = 5_000;
+
 const MODEL_ALIASES: Readonly<Record<string, string>> = {
   'gpt-4': 'gpt-4o',
   'gpt-4-turbo': 'gpt-4o',
@@ -175,9 +178,23 @@ export class ProviderRegistry {
     }
     // De-duplicate concurrent refreshes into one DB load.
     if (this.inflight === undefined) {
-      this.inflight = this.load().finally(() => {
-        this.inflight = undefined;
-      });
+      this.inflight = this.load()
+        .catch((error: unknown) => {
+          if (this.loadedAtMs === 0) {
+            throw error; // Nothing to serve from yet: surface the failure.
+          }
+          // Keep serving the last good snapshot through a DB blip instead of
+          // failing every request, and retry after a short backoff.
+          logger.error(
+            { err: toErrorMessage(error) },
+            'Registry refresh failed; serving the stale snapshot',
+          );
+          this.loadedAtMs =
+            Date.now() - config.REGISTRY_CACHE_TTL_SECONDS * 1000 + REFRESH_RETRY_MS;
+        })
+        .finally(() => {
+          this.inflight = undefined;
+        });
     }
     await this.inflight;
   }
