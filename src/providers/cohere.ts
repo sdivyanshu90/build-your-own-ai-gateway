@@ -75,6 +75,7 @@ export class CohereProvider extends BaseProvider {
       joinUrl(this.cfg.baseUrl, '/v2/chat'),
       { method: 'POST', headers: this.headers(), body: JSON.stringify(body) },
       signal,
+      { streaming: true },
     );
     await this.ensureOk(response);
     if (response.body === null) {

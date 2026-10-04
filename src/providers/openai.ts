@@ -106,7 +106,9 @@ export class OpenAIProvider extends BaseProvider {
     stream: boolean,
   ): Record<string, unknown> {
     if (!stream) {
-      return { ...request, stream: false };
+      // stream_options is only valid with stream:true; OpenAI 400s otherwise.
+      const { stream_options: _ignored, ...rest } = request;
+      return { ...rest, stream: false };
     }
     const wantUsage = request.stream_options?.include_usage === true;
     return {
@@ -163,6 +165,7 @@ export class OpenAIProvider extends BaseProvider {
         body: JSON.stringify(this.buildChatBody(request, true)),
       },
       signal,
+      { streaming: true },
     );
     await this.ensureOk(response);
     if (response.body === null) {

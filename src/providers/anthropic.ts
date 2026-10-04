@@ -109,10 +109,9 @@ const messageResponseSchema = z.object({
   id: z.string(),
   model: z.string().optional(),
   content: z.array(responseBlockSchema),
-  stop_reason: z
-    .enum(['end_turn', 'max_tokens', 'stop_sequence', 'tool_use'])
-    .nullable()
-    .optional(),
+  // Free-form on purpose: Anthropic adds stop reasons over time (pause_turn,
+  // refusal, ...). A strict enum would turn every new value into a 502 + failover.
+  stop_reason: z.string().nullable().optional(),
   usage: z.object({
     input_tokens: z.number().int().nonnegative(),
     output_tokens: z.number().int().nonnegative(),
@@ -166,6 +165,7 @@ export class AnthropicProvider extends BaseProvider {
       joinUrl(this.cfg.baseUrl, '/v1/messages'),
       { method: 'POST', headers: this.headers(), body: JSON.stringify(body) },
       signal,
+      { streaming: true },
     );
     await this.ensureOk(response);
     if (response.body === null) {
@@ -262,7 +262,8 @@ export class AnthropicProvider extends BaseProvider {
       body.system = systemParts.join('\n\n');
     }
     if (request.temperature !== undefined) {
-      body.temperature = request.temperature;
+      // OpenAI allows [0, 2]; Anthropic rejects anything above 1.
+      body.temperature = Math.min(1, request.temperature);
     }
     if (request.top_p !== undefined) {
       body.top_p = request.top_p;
@@ -273,7 +274,8 @@ export class AnthropicProvider extends BaseProvider {
     if (stream) {
       body.stream = true;
     }
-    if (request.tools !== undefined && request.tools.length > 0) {
+    // tool_choice:'none' has no Anthropic equivalent, so the tools are withheld.
+    if (request.tools !== undefined && request.tools.length > 0 && request.tool_choice !== 'none') {
       body.tools = request.tools.map((tool) => ({
         name: tool.function.name,
         ...(tool.function.description !== undefined
@@ -417,10 +419,20 @@ export class AnthropicProvider extends BaseProvider {
         case 'message_delta': {
           const delta = evt['delta'];
           if (isRecord(delta) && typeof delta['stop_reason'] === 'string') {
-            stopReason = delta['stop_reason'] as AnthropicStopReason;
+            stopReason = delta['stop_reason'];
           }
           completionTokens = readUsageField(evt['usage'], 'output_tokens') ?? completionTokens;
           break;
+        }
+        case 'error': {
+          // Mid-stream upstream failure (e.g. overloaded_error). Surface it so the
+          // router records a stream error instead of ending the stream "cleanly".
+          const err = evt['error'];
+          const message =
+            isRecord(err) && typeof err['message'] === 'string' ? err['message'] : 'stream error';
+          throw new ProviderError(`Anthropic stream error: ${message}`, 502, {
+            providerId: this.id,
+          });
         }
         case 'message_stop': {
           yield makeFinishChunk(id, created, model, mapStopReason(stopReason, sawToolUse));
@@ -443,14 +455,17 @@ export class AnthropicProvider extends BaseProvider {
 
 // ── Pure translation helpers ─────────────────────────────────────────────────
 
-type AnthropicStopReason = 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use' | null;
+type AnthropicStopReason = string | null;
 
 function mapStopReason(
   reason: AnthropicStopReason,
   sawToolUse: boolean,
 ): 'stop' | 'length' | 'tool_calls' | 'content_filter' {
-  if (reason === 'max_tokens') {
+  if (reason === 'max_tokens' || reason === 'model_context_window_exceeded') {
     return 'length';
+  }
+  if (reason === 'refusal') {
+    return 'content_filter';
   }
   if (reason === 'tool_use' || sawToolUse) {
     return 'tool_calls';
