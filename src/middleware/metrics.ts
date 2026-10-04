@@ -19,6 +19,7 @@ import { type CacheStatus } from '../utils/constants.js';
 declare module 'fastify' {
   interface FastifyRequest {
     metricsStartNs?: bigint;
+    metricsSettled?: boolean;
   }
 }
 
@@ -122,20 +123,42 @@ export function metricsOnRequest(request: FastifyRequest): void {
   metrics.inFlight.inc();
 }
 
-/** onResponse: record HTTP request count + duration and clear the in-flight gauge. */
-export function metricsOnResponse(request: FastifyRequest, reply: FastifyReply): void {
+/**
+ * Close out a request exactly once: clear the in-flight gauge and record count +
+ * duration. Fastify never calls onResponse for a request the client aborted, so
+ * both the onResponse and onRequestAbort hooks funnel through here; the flag
+ * makes a (hypothetical) double delivery harmless.
+ */
+function settle(request: FastifyRequest, statusCode: string): void {
+  if (request.metricsSettled === true) {
+    return;
+  }
+  request.metricsSettled = true;
   metrics.inFlight.dec();
-  const route = request.routeOptions.url ?? 'unknown';
   const labels = {
     method: request.method,
-    route,
-    status_code: String(reply.statusCode),
+    route: request.routeOptions.url ?? 'unknown',
+    status_code: statusCode,
   };
   metrics.httpRequests.inc(labels);
   if (request.metricsStartNs !== undefined) {
     const seconds = Number(process.hrtime.bigint() - request.metricsStartNs) / 1e9;
     metrics.httpDuration.observe(labels, seconds);
   }
+}
+
+/** onResponse: record HTTP request count + duration and clear the in-flight gauge. */
+export function metricsOnResponse(request: FastifyRequest, reply: FastifyReply): void {
+  settle(request, String(reply.statusCode));
+}
+
+/**
+ * onRequestAbort: the client went away before a response was sent. Recorded with
+ * status_code "499" (the nginx convention for "client closed request"). Without
+ * this the in-flight gauge leaked one count per aborted request.
+ */
+export function metricsOnAbort(request: FastifyRequest): void {
+  settle(request, '499');
 }
 
 /** Record a cache event for the X-Gateway-Cache-Status value. */

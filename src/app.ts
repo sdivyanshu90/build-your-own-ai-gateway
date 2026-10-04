@@ -24,6 +24,7 @@ import { checkDatabaseHealth } from './database/index.js';
 import { checkRedisHealth } from './database/redis.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import {
+  metricsOnAbort,
   metricsOnRequest,
   metricsOnResponse,
   registry as metricsRegistry,
@@ -69,6 +70,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
   app.addHook('onResponse', (request, reply, done) => {
     metricsOnResponse(request, reply);
+    done();
+  });
+  // Fastify skips onResponse for client-aborted requests; settle them here.
+  app.addHook('onRequestAbort', (request, done) => {
+    metricsOnAbort(request);
     done();
   });
 
