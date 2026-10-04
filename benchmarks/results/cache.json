@@ -1,0 +1,134 @@
+{
+  "meta": {
+    "date": "2026-10-04T17:05:46.263Z",
+    "node": "v21.5.0",
+    "host": {
+      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+      "cpus": 8,
+      "totalMemMB": 5928
+    },
+    "autocannon": "8.0.0"
+  },
+  "mockLatencyMs": 20,
+  "runs": {
+    "hit_c1": {
+      "connections": 1,
+      "durationS": 15,
+      "rps": 27,
+      "requests": 410,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 35.98,
+        "p50": 33,
+        "p90": 45,
+        "p97_5": 61,
+        "p99": 79,
+        "p99_9": 110,
+        "max": 110
+      },
+      "loadgenCpuPct": 2
+    },
+    "miss_c1": {
+      "connections": 1,
+      "durationS": 15,
+      "rps": 19,
+      "requests": 284,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 52.09,
+        "p50": 51,
+        "p90": 58,
+        "p97_5": 66,
+        "p99": 69,
+        "p99_9": 80,
+        "max": 80
+      },
+      "loadgenCpuPct": 1
+    },
+    "uncacheable_c1": {
+      "connections": 1,
+      "durationS": 15,
+      "rps": 8,
+      "requests": 118,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 120.13,
+        "p50": 74,
+        "p90": 127,
+        "p97_5": 202,
+        "p99": 1456,
+        "p99_9": 3318,
+        "max": 3318
+      },
+      "loadgenCpuPct": 14
+    },
+    "hit_c16": {
+      "connections": 16,
+      "durationS": 15,
+      "rps": 39,
+      "requests": 582,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 417.54,
+        "p50": 163,
+        "p90": 199,
+        "p97_5": 8912,
+        "p99": 9349,
+        "p99_9": 9554,
+        "max": 9554
+      },
+      "loadgenCpuPct": 8
+    },
+    "miss_c16": {
+      "connections": 16,
+      "durationS": 15,
+      "rps": 49,
+      "requests": 736,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 322.73,
+        "p50": 310,
+        "p90": 402,
+        "p97_5": 449,
+        "p99": 605,
+        "p99_9": 610,
+        "max": 610
+      },
+      "loadgenCpuPct": 1
+    },
+    "uncacheable_c16": {
+      "connections": 16,
+      "durationS": 15,
+      "rps": 24,
+      "requests": 364,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 643.53,
+        "p50": 516,
+        "p90": 1056,
+        "p97_5": 1823,
+        "p99": 1826,
+        "p99_9": 1829,
+        "max": 1829
+      },
+      "loadgenCpuPct": 2
+    }
+  },
+  "statusSamples": {
+    "first": "MISS",
+    "second": "HIT",
+    "uncacheable": "SKIP"
+  }
+}

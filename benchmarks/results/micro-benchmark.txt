@@ -1,0 +1,6 @@
+AI gateway microbenchmarks
+
+cache key derivation              50360 ops/s     19857.0 ns/op
+LB candidate-set key              87679 ops/s     11405.3 ns/op
+
+Done.

@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "date": "2026-10-04T17:06:46.344Z",
+    "node": "v21.5.0",
+    "host": {
+      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+      "cpus": 8,
+      "totalMemMB": 5928
+    },
+    "autocannon": "8.0.0"
+  },
+  "idle": "109MiB / 512MiB|0.85%",
+  "load": {
+    "connections": 64,
+    "durationS": 30,
+    "rps": 49,
+    "requests": 1467,
+    "non2xx": 0,
+    "errors": 0,
+    "timeouts": 0,
+    "latencyMs": {
+      "mean": 1281.38,
+      "p50": 1276,
+      "p90": 1514,
+      "p97_5": 1902,
+      "p99": 1911,
+      "p99_9": 1917,
+      "max": 1917
+    },
+    "loadgenCpuPct": 2
+  },
+  "loadContainer": {
+    "samples": 10,
+    "maxMemMiB": 110,
+    "avgCpuPct": 14.4,
+    "maxCpuPct": 27.74
+  },
+  "afterSettle": "109.4MiB / 512MiB|1.25%",
+  "rssFromMetrics": [
+    "process_cpu_seconds_total{service=\"ai-gateway\"} 74.073759",
+    "process_resident_memory_bytes{service=\"ai-gateway\"} 161083392",
+    "nodejs_heap_size_used_bytes{service=\"ai-gateway\"} 35257184"
+  ]
+}
