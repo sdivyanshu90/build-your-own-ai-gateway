@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { getDb } from '../../src/database/index.js';
+import { apiKeys } from '../../src/database/schema.js';
+import { generateApiKey } from '../../src/utils/crypto.js';
 import { type TestStack, buildTestStack } from '../helpers/stack.js';
 
 let stack: TestStack;
@@ -69,5 +72,20 @@ describe('GET /v1/models', () => {
     const body = res.json();
     expect(body.object).toBe('list');
     expect(body.data.some((m: { id: string }) => m.id === stack.model)).toBe(true);
+  });
+
+  it('only lists models the key is allowed to use (regression: allow-list ignored)', async () => {
+    const raw = generateApiKey();
+    await getDb()
+      .insert(apiKeys)
+      .values({ keyHash: raw.hash, name: 'restricted', allowedModels: [stack.embeddingModel] });
+    const res = await stack.app.inject({
+      method: 'GET',
+      url: '/v1/models',
+      headers: { authorization: `Bearer ${raw.raw}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const ids = res.json().data.map((m: { id: string }) => m.id);
+    expect(ids).toEqual([stack.embeddingModel]);
   });
 });
