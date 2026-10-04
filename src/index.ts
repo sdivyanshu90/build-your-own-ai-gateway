@@ -40,7 +40,7 @@ async function initTracing(): Promise<() => Promise<void>> {
   }
   try {
     // Imported dynamically so the (heavy) OTel SDK is not loaded when disabled.
-    const { NodeSDK } = await import('@opentelemetry/sdk-node');
+    const { NodeSDK, tracing } = await import('@opentelemetry/sdk-node');
     const { getNodeAutoInstrumentations } =
       await import('@opentelemetry/auto-instrumentations-node');
     const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http');
@@ -48,6 +48,12 @@ async function initTracing(): Promise<() => Promise<void>> {
     const { SemanticResourceAttributes } = await import('@opentelemetry/semantic-conventions');
 
     const sdk = new NodeSDK({
+      // Head-based sampling at OTEL_TRACES_SAMPLER_RATIO for new traces, honouring
+      // the caller's decision when a parent span exists. (The setting was
+      // previously validated but never applied, so every request was traced.)
+      sampler: new tracing.ParentBasedSampler({
+        root: new tracing.TraceIdRatioBasedSampler(config.OTEL_TRACES_SAMPLER_RATIO),
+      }),
       resource: new Resource({
         [SemanticResourceAttributes.SERVICE_NAME]: config.OTEL_SERVICE_NAME,
       }),
