@@ -161,8 +161,42 @@ export class NotFoundError extends GatewayError {
 export class ValidationError extends GatewayError {
   public override readonly name = 'ValidationError';
   public constructor(message = 'The request body is invalid.', options: GatewayErrorOptions = {}) {
-    super(message, 422, 'invalid_request_error', { code: 'invalid_request', ...options });
+    // When Zod issues are attached, tell the client what is wrong (they describe
+    // the caller's own input). Previously the response was the bare generic
+    // message and the details were discarded, leaving clients to guess.
+    const { detail, param } = summarizeIssues(options.context?.['issues']);
+    super(detail === '' ? message : `${message} ${detail}`, 422, 'invalid_request_error', {
+      code: 'invalid_request',
+      ...(param !== undefined ? { param } : {}),
+      ...options,
+    });
   }
+}
+
+const MAX_ISSUES_IN_MESSAGE = 3;
+
+/** Render the first few Zod-style issues as `path: message; ...` plus the first path as `param`. */
+function summarizeIssues(issues: unknown): { detail: string; param: string | undefined } {
+  if (!Array.isArray(issues) || issues.length === 0) {
+    return { detail: '', param: undefined };
+  }
+  const parts: string[] = [];
+  let param: string | undefined;
+  for (const issue of issues.slice(0, MAX_ISSUES_IN_MESSAGE) as unknown[]) {
+    if (typeof issue !== 'object' || issue === null) {
+      continue;
+    }
+    const record = issue as Record<string, unknown>;
+    const path = Array.isArray(record['path']) ? (record['path'] as unknown[]).join('.') : '';
+    const message = typeof record['message'] === 'string' ? record['message'] : 'invalid value';
+    param ??= path === '' ? undefined : path;
+    parts.push(path === '' ? message : `${path}: ${message}`);
+  }
+  const more =
+    issues.length > MAX_ISSUES_IN_MESSAGE
+      ? ` (+${issues.length - MAX_ISSUES_IN_MESSAGE} more)`
+      : '';
+  return { detail: parts.length === 0 ? '' : `${parts.join('; ')}${more}`, param };
 }
 
 /** 413 — request body exceeded the configured maximum size. */

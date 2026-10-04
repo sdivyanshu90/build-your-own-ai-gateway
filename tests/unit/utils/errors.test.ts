@@ -67,3 +67,27 @@ describe('normalizeError (Fastify → gateway)', () => {
     expect(normalizeError(fastifyErr).statusCode).toBe(400);
   });
 });
+
+describe('ValidationError detail', () => {
+  it('keeps the plain message when there are no issues', () => {
+    expect(new ValidationError().message).toBe('The request body is invalid.');
+  });
+
+  it('appends the first Zod issues and sets param (regression: details were discarded)', () => {
+    const err = new ValidationError('Invalid chat completion request.', {
+      context: {
+        issues: [
+          { path: ['messages', 0, 'role'], message: 'Invalid discriminator value.' },
+          { path: ['temperature'], message: 'Number must be less than or equal to 2' },
+          { path: [], message: 'Required' },
+          { path: ['stream'], message: 'Expected boolean' },
+        ],
+      },
+    });
+    expect(err.message).toContain('messages.0.role: Invalid discriminator value.');
+    expect(err.message).toContain('temperature: Number must be less than or equal to 2');
+    expect(err.message).toContain('(+1 more)');
+    expect(err.param).toBe('messages.0.role');
+    expect(err.toOpenAIError().error.param).toBe('messages.0.role');
+  });
+});
