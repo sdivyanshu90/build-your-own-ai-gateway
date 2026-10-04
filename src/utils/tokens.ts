@@ -31,6 +31,16 @@ const IMAGE_TOKEN_COST = 85;
 /** Calibrated average characters per token for the heuristic counter. */
 const CHARS_PER_TOKEN = 4;
 
+/**
+ * Count text as ordinary text. tiktoken's default `disallowed_special: 'all'`
+ * THROWS when the input contains a literal special token such as
+ * `<|endoftext|>`, which would turn a user prompt into a 500 before routing.
+ * Passing empty allow/disallow lists encodes such strings as plain text.
+ */
+function encodePlain(encoder: Tiktoken, text: string): number {
+  return encoder.encode(text, [], []).length;
+}
+
 const encoderCache = new Map<TiktokenEncoding, Tiktoken>();
 
 /** Lazily construct and cache a tiktoken encoder by encoding name. */
@@ -77,7 +87,7 @@ export function isOpenAITokenizable(model: string): boolean {
 /** Exact tiktoken count for a single string under the given model's encoding. */
 export function countTextTokens(text: string, model: string): number {
   const encoder = getEncoder(encodingForModel(model));
-  return encoder.encode(text).length;
+  return encodePlain(encoder, text);
 }
 
 /** Heuristic count for a single string (used for non-OpenAI providers). */
@@ -141,7 +151,7 @@ function countContent(content: ChatMessage['content'], count: (text: string) => 
 export function countChatTokens(messages: readonly ChatMessage[], model: string): number {
   if (isOpenAITokenizable(model)) {
     const encoder = getEncoder(encodingForModel(model));
-    return countChat(messages, (text) => encoder.encode(text).length);
+    return countChat(messages, (text) => encodePlain(encoder, text));
   }
   return countChat(messages, approximateTextTokens);
 }
