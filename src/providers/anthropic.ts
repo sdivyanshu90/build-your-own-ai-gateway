@@ -371,7 +371,13 @@ export class AnthropicProvider extends BaseProvider {
 
       switch (type) {
         case 'message_start': {
-          promptTokens = readUsageField(evt['message'], 'input_tokens') ?? promptTokens;
+          // Usage is nested: message_start carries { message: { usage: { input_tokens } } }.
+          const startMessage = evt['message'];
+          promptTokens =
+            readUsageField(
+              isRecord(startMessage) ? startMessage['usage'] : undefined,
+              'input_tokens',
+            ) ?? promptTokens;
           if (!roleEmitted) {
             roleEmitted = true;
             yield makeRoleChunk(id, created, model);
