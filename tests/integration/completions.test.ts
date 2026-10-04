@@ -264,4 +264,18 @@ describe('POST /v1/chat/completions (full stack)', () => {
     expect(res.body).toContain('data:');
     expect(res.body).toContain('[DONE]');
   });
+
+  it('keeps CORS and security headers on hijacked SSE responses (regression)', async () => {
+    primary.setStatus(200);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: { authorization: `Bearer ${apiKey}`, origin: 'https://app.example.com' },
+      payload: chatBody({ stream: true }),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['access-control-allow-origin']).toBe('https://app.example.com');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-request-id']).toBeDefined();
+  });
 });

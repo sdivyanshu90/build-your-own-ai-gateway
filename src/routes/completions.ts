@@ -67,7 +67,10 @@ export async function completionsRoutes(app: FastifyInstance): Promise<void> {
     if (body.stream === true) {
       const prep = await router.prepareStream(body, context, { signal, bypassCache });
       reply.hijack();
+      // hijack() bypasses Fastify's own header flush, so headers added by
+      // plugins (CORS, helmet) and earlier hooks must be copied in explicitly.
       reply.raw.writeHead(200, {
+        ...(reply.getHeaders() as Record<string, string | number | string[]>),
         'content-type': 'text/event-stream',
         'cache-control': 'no-cache',
         connection: 'keep-alive',
