@@ -26,11 +26,26 @@ describe('sliding-window rate limiter (real Redis)', () => {
 
   it('rejects when the TPM limit is exceeded', async () => {
     const limits = { rpmLimit: 1_000, tpmLimit: 100, estimatedTokens: 60 };
-    expect((await limiter.check(keyId, limits)).allowed).toBe(true); // sum 0 → 60
-    expect((await limiter.check(keyId, limits)).allowed).toBe(true); // sum 60 → 120
-    const rejected = await limiter.check(keyId, limits); // sum 120 ≥ 100
+    expect((await limiter.check(keyId, limits)).allowed).toBe(true); // 0 + 60 <= 100
+    const rejected = await limiter.check(keyId, limits); // 60 + 60 > 100
     expect(rejected.allowed).toBe(false);
     expect(rejected.reason).toBe('tpm');
+  });
+
+  it('never admits a single request whose estimate alone exceeds the TPM limit', async () => {
+    // Regression: the check used to be `sum >= limit`, so a request of any size
+    // was admitted while the window was empty.
+    const limits = { rpmLimit: 1_000, tpmLimit: 100, estimatedTokens: 10_000 };
+    const result = await limiter.check(keyId, limits);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe('tpm');
+  });
+
+  it('admits requests that exactly fill the TPM budget', async () => {
+    const limits = { rpmLimit: 1_000, tpmLimit: 100, estimatedTokens: 50 };
+    expect((await limiter.check(keyId, limits)).allowed).toBe(true);
+    expect((await limiter.check(keyId, limits)).allowed).toBe(true); // 50 + 50 == 100
+    expect((await limiter.check(keyId, limits)).allowed).toBe(false);
   });
 
   it('scopes limits per key (key A does not affect key B)', async () => {

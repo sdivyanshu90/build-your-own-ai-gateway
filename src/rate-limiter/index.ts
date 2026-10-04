@@ -97,7 +97,7 @@ if rpmCount >= rpmLimit then
 elseif burstEnabled == 1 and burstCount >= burstLimit then
   allowed = 0
   reason = 'burst'
-elseif tpmSum >= tpmLimit then
+elseif tpmSum + reqTokens > tpmLimit then
   allowed = 0
   reason = 'tpm'
 end
