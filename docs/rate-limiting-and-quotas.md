@@ -72,9 +72,10 @@ check proportional to the requests in the window - quadratic in the request rate
 
 ## Failure behaviour
 
-`RateLimiter.check` does not catch Redis errors and the routes do not either: with Redis unreachable, `/v1/chat/completions` and `/v1/embeddings` return **500**.
-ioredis retries up to `REDIS_MAX_RETRIES_PER_REQUEST` (3) with backoff before the command rejects, so requests also slow down first. See
-[benchmarks.md](./benchmarks.md#dependency-outages) for the measured behaviour. To trade enforcement for availability, run with `RATE_LIMIT_ENABLED=false`.
+`RateLimiter.check` is awaited on every request and neither it nor the routes guard it, so the rate limiter makes Redis a hard dependency. Measured with Redis stopped
+([benchmarks.md](./benchmarks.md#dependency-outages)): 3 of 8 probe requests returned HTTP 500 within ~0.3 s and 5 had not completed when the client gave up after 20 s (ioredis keeps commands
+queued while it reconnects). The first successful request followed ~2.8 s after Redis came back. To trade enforcement for availability run with `RATE_LIMIT_ENABLED=false`; a proper fix would be
+a short command timeout plus fail-open.
 
 ## Operating it
 

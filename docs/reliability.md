@@ -107,14 +107,14 @@ anywhere takes the replica down gracefully rather than leaving it in an undefine
 
 ## Request-path dependencies
 
-| Dependency                   | Hard dependency on the request path?                                                                                                              |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Redis (auth cache)           | No - falls back to Postgres.                                                                                                                      |
-| Redis (rate limiter)         | **Yes** - `RateLimiter.check` throws on a Redis error, the route does not catch it -> HTTP 500. Set `RATE_LIMIT_ENABLED=false` to run without it. |
-| Redis (breaker / LB / cache) | No - fail open / random / miss.                                                                                                                   |
-| Redis (spend counters)       | Reads and writes swallow errors (budget check fails open: spend reads as 0).                                                                      |
-| PostgreSQL (auth)            | Only on auth-cache miss.                                                                                                                          |
-| PostgreSQL (request log)     | Writes errors are swallowed, but the insert is awaited on the request path.                                                                       |
+| Dependency                   | Hard dependency on the request path?                                                                                                                                                                                                               |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Redis (auth cache)           | No - falls back to Postgres.                                                                                                                                                                                                                       |
+| Redis (rate limiter)         | **Yes** - `RateLimiter.check` is awaited on every request and not guarded. Measured with Redis stopped: HTTP 500 for some requests and no answer within 20 s for others (ioredis offline queue). Set `RATE_LIMIT_ENABLED=false` to run without it. |
+| Redis (breaker / LB / cache) | No - fail open / random / miss.                                                                                                                                                                                                                    |
+| Redis (spend counters)       | Reads and writes swallow errors (budget check fails open: spend reads as 0).                                                                                                                                                                       |
+| PostgreSQL (auth)            | Only on auth-cache miss.                                                                                                                                                                                                                           |
+| PostgreSQL (request log)     | Write errors are swallowed; since the queue change the insert runs in the background (it used to be awaited on the request path).                                                                                                                  |
 
 The measured client-visible behaviour during Redis and PostgreSQL outages is in
 [benchmarks.md](./benchmarks.md#dependency-outages).

@@ -29,7 +29,7 @@ no longer matches the stored ciphertext. Set `ENCRYPTION_KEY_PREVIOUS` to the ol
 | `422 invalid_request`                                                     | Zod validation of the body; the message names the failing paths                                                                 | `chatCompletionRequestSchema`                                                                       |
 | `429 rate_limit_exceeded` with `Retry-After`                              | RPM or estimated-prompt-TPM window full (a _single_ prompt estimated larger than the TPM limit is always rejected)              | `X-RateLimit-*` headers, `gateway_rate_limited_total{reason}`                                       |
 | `429 insufficient_quota`                                                  | Monthly budget reached (Redis counter)                                                                                          | `GET /admin/keys/:id/usage`                                                                         |
-| `500` on every request while Redis is down                                | Rate limiter is fail-closed                                                                                                     | `RATE_LIMIT_ENABLED=false` to run degraded; see [benchmarks.md](./benchmarks.md#dependency-outages) |
+| `500`s and requests that hang while Redis is down                         | The rate limiter awaits Redis on every request; ioredis queues commands while reconnecting                                      | `RATE_LIMIT_ENABLED=false` to run degraded; see [benchmarks.md](./benchmarks.md#dependency-outages) |
 | `502 provider_error` mentioning "rejected the gateway's request with 401" | The upstream rejected the _provider credential_ (or billing, or the model id is wrong there).                                   | fix the provider row via `PATCH /admin/providers/:id`                                               |
 | `503 all_providers_failed`                                                | Every candidate failed, or all circuits are OPEN, or the model has exactly one provider and it blinked (no same-provider retry) | `GET /admin/circuit-breakers`, `gateway_provider_errors_total`                                      |
 | `503 service_unavailable` with `Retry-After: 50`                          | `@fastify/under-pressure`: event-loop delay > 1000 ms (it was reported as 500 before the error-handler fix)                     | CPU saturation; scale out                                                                           |
@@ -58,8 +58,8 @@ replica's `Date.now()`).
 **`request_logs_default` is growing.** The next month's partition was not created in time. Create it _before_ rows arrive; once rows exist for that month in the default partition,
 `create_request_logs_partition` fails and the rows must be moved first ([data-model.md](./data-model.md#partitions)).
 
-**Request latency spikes by ~`DATABASE_CONNECTION_TIMEOUT_MS` when PostgreSQL is down.** The request-log insert is awaited on the request path (see the measured numbers in
-[benchmarks.md](./benchmarks.md#dependency-outages)).
+**Latency when PostgreSQL is slow or unreachable.** With the database _refusing_ connections requests were unaffected (measured, [benchmarks.md](./benchmarks.md#dependency-outages)). A blackholed
+connection waits `DATABASE_CONNECTION_TIMEOUT_MS`; request-log inserts now run in the background (bounded queue, `gateway_request_logs_dropped_total` counts overflow), so responses are not held back.
 
 **Migration fails mid-way on `ALTER TYPE ... ADD VALUE`.** Files that use it must contain `-- migrate:no-transaction` (the runner searches the whole file for that exact text).
 

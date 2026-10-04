@@ -61,8 +61,8 @@ export class CostTracker {
   /**
    * Queue a request log write without making the caller wait for PostgreSQL.
    *
-   * The insert used to be awaited on the request path, so a slow or unreachable
-   * database delayed every response by up to the connection/statement timeout.
+   * The insert used to be awaited on the request path, so every response paid for a
+   * PostgreSQL commit, and a slow or blackholed database delayed it further.
    * Writes now run in the background, bounded by MAX_PENDING_LOG_WRITES: when the
    * database cannot keep up the newest entries are dropped (and counted) instead
    * of growing memory without limit. {@link flush} drains them on shutdown.
