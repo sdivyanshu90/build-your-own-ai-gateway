@@ -124,6 +124,23 @@ describe('cache: key derivation', () => {
     expect(cache.computeKey(baseRequest)).not.toBe(cache.computeKey(other));
   });
 
+  it('includes every output-affecting parameter (regression: stale replies across params)', () => {
+    const { cache } = makeCache();
+    const k = (extra: Partial<ChatCompletionRequest>): string =>
+      cache.computeKey({ ...baseRequest, ...extra });
+    const base = k({});
+    expect(k({ seed: 2 })).not.toBe(base);
+    expect(k({ stop: ['END'] })).not.toBe(base);
+    expect(k({ n: 2 })).not.toBe(base);
+    expect(k({ presence_penalty: 0.5 })).not.toBe(base);
+    expect(k({ frequency_penalty: 0.5 })).not.toBe(base);
+    expect(k({ logit_bias: { '50256': -100 } })).not.toBe(base);
+    expect(k({ response_format: { type: 'json_object' } })).not.toBe(base);
+    // Parameters that cannot change the output must NOT fragment the cache.
+    expect(k({ user: 'alice' })).toBe(base);
+    expect(k({ stream_options: { include_usage: true } })).toBe(base);
+  });
+
   it('canonicalises object key order', () => {
     expect(canonicalStringify({ b: 1, a: 2 })).toBe(canonicalStringify({ a: 2, b: 1 }));
   });
