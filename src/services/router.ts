@@ -33,7 +33,7 @@ import {
   type EmbeddingRequest,
   type EmbeddingResponse,
 } from '../types/openai.js';
-import { CACHE_STATUS, type CacheStatus } from '../utils/constants.js';
+import { CACHE_STATUS, CIRCUIT_STATE, type CacheStatus } from '../utils/constants.js';
 import {
   AllProvidersFailedError,
   CircuitOpenError,
@@ -41,6 +41,7 @@ import {
   InsufficientQuotaError,
   NotFoundError,
   PermissionError,
+  toErrorMessage,
 } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
@@ -208,10 +209,15 @@ export class GatewayRouter {
     const { canonicalModel, candidates } = this.resolveAndAuthorize(request, context);
     await this.enforceBudget(context);
 
+    // Always ask upstream for authoritative usage so cost and token accounting
+    // do not rely on the chars/4 estimate. If the client did not ask for the
+    // usage chunk itself, it is consumed here and never forwarded.
+    const clientWantsUsage = request.stream_options?.include_usage === true;
     const upstreamRequest: ChatCompletionRequest = {
       ...request,
       model: canonicalModel,
       stream: true,
+      stream_options: { ...request.stream_options, include_usage: true },
     };
 
     // Failover loop that commits only once the first chunk is in hand.
@@ -245,7 +251,9 @@ export class GatewayRouter {
             completionTokens,
             usageFromStream,
           ));
-          yield first.value;
+          if (clientWantsUsage || !isUsageOnlyChunk(first.value)) {
+            yield first.value;
+          }
         }
         for (;;) {
           const next = await iterator.next();
@@ -253,14 +261,19 @@ export class GatewayRouter {
             break;
           }
           const chunk = next.value;
-          completionTokens += countDeltaTokens(chunk);
+          // Once authoritative usage has arrived, stop adding estimates on top.
+          if (!usageFromStream) {
+            completionTokens += countDeltaTokens(chunk);
+          }
           ({ promptTokens, completionTokens, usageFromStream } = applyUsage(
             chunk,
             promptTokens,
             completionTokens,
             usageFromStream,
           ));
-          yield chunk;
+          if (clientWantsUsage || !isUsageOnlyChunk(chunk)) {
+            yield chunk;
+          }
         }
       } catch (error) {
         // Past the first byte we cannot fail over; surface as a stream error.
@@ -445,28 +458,39 @@ export class GatewayRouter {
       const provider = await this.deps.loadBalancer.select(remaining);
       remaining = remaining.filter((p) => p.id !== provider.id);
 
-      const decision = await this.deps.circuitBreaker.acquire(provider.id);
+      // The breaker is an optimisation, not a dependency: if its Redis state is
+      // unreachable we fail open (treat as CLOSED) rather than fail the request.
+      const decision = await this.deps.circuitBreaker
+        .acquire(provider.id)
+        .catch((error: unknown) => {
+          logger.warn({ err: toErrorMessage(error) }, 'Circuit breaker unavailable; failing open');
+          return { state: CIRCUIT_STATE.CLOSED, allowed: true };
+        });
       if (!decision.allowed) {
         // Circuit OPEN — skip to the next candidate immediately.
         lastError = new CircuitOpenError(provider.id);
         metrics.providerErrors.inc({ provider: provider.name, kind: 'circuit_open' });
+        // select() may have taken a least-connections slot; give it back.
+        await this.deps.loadBalancer.release(provider.id);
         continue;
       }
 
       attempts += 1;
       try {
         const value = await call(provider);
-        await this.deps.circuitBreaker.recordSuccess(provider.id);
+        await this.deps.circuitBreaker.recordSuccess(provider.id).catch(swallowBreakerError);
         return { provider, value, failoverCount: attempts - 1 };
       } catch (error) {
         const gwError = GatewayError.from(error);
         if (!gwError.retryable) {
-          // Client error (4xx) — do not fail over; propagate as-is.
+          // Client error (4xx) or caller abort — no verdict on provider health,
+          // so hand back any HALF_OPEN probe slot and propagate as-is.
           metrics.providerErrors.inc({ provider: provider.name, kind: 'client_error' });
+          await this.deps.circuitBreaker.release(provider.id).catch(swallowBreakerError);
           throw gwError;
         }
         // Retryable upstream failure — penalise and fail over.
-        await this.deps.circuitBreaker.recordFailure(provider.id);
+        await this.deps.circuitBreaker.recordFailure(provider.id).catch(swallowBreakerError);
         await this.deps.loadBalancer.recordFailure(provider.id);
         metrics.providerErrors.inc({ provider: provider.name, kind: 'upstream_error' });
         metrics.failovers.inc();
@@ -511,16 +535,31 @@ export class GatewayRouter {
   }
 }
 
+/** Breaker bookkeeping failures must never fail a request that otherwise succeeded. */
+function swallowBreakerError(error: unknown): undefined {
+  logger.warn({ err: toErrorMessage(error) }, 'Circuit breaker bookkeeping failed (ignored)');
+  return undefined;
+}
+
 /** Approximate completion tokens contributed by a single streamed chunk. */
 function countDeltaTokens(chunk: ChatCompletionChunk): number {
-  const choice = chunk.choices[0];
-  const content = choice?.delta.content;
+  const choice = chunk.choices?.[0];
+  const content = choice?.delta?.content;
   if (typeof content === 'string' && content.length > 0) {
     // ~4 chars/token approximation; the authoritative count comes from a usage
     // chunk when the provider sends one (see applyUsage).
     return Math.max(1, Math.round(content.length / 4));
   }
   return 0;
+}
+
+/** A usage-only chunk: empty `choices` plus a populated `usage` (OpenAI include_usage tail). */
+function isUsageOnlyChunk(chunk: ChatCompletionChunk): boolean {
+  return (
+    (chunk.choices === undefined || chunk.choices.length === 0) &&
+    chunk.usage !== null &&
+    chunk.usage !== undefined
+  );
 }
 
 /** If a chunk carries a usage object, adopt its authoritative token counts. */
