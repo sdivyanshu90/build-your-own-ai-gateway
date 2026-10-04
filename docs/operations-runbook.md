@@ -80,8 +80,10 @@ then drain in-flight requests within the grace period.
 ## Scaling guide
 
 - **Scale out (more pods):** CPU > 70% sustained or RPS-per-pod > 150 (HPA handles this).
-- **Scale Redis:** Redis CPU > 70% or memory > 80% maxmemory → move to Redis Cluster; the app is
-  cluster-ready (keys are independently hashable per concern).
+- **Scale Redis:** Redis CPU > 70% or memory > 80% maxmemory → scale the single primary vertically (and add replicas for HA).
+  **Redis Cluster is not supported by the current key scheme** (multi-key Lua scripts without hash tags fail with `CROSSSLOT`; see
+  [deployment.md](./deployment.md#redis-requirements)). Hot-key cost is dominated by the rate limiter's sorted sets
+  ([rate-limiting-and-quotas.md](./rate-limiting-and-quotas.md)).
 - **Scale PostgreSQL:** audit-write volume saturating the primary → add read replicas for
   admin/log queries first; partition pruning keeps the hot set small; shard by `api_key_id` only
   as a last resort.
@@ -101,11 +103,17 @@ cert-manager auto-renews the ingress TLS secret; no application restart is requi
 
 ## Encryption key rotation
 
+Zero-downtime procedure (details and rationale in [security.md](./security.md#key-rotation-procedure)):
+
 ```bash
 NEW=$(openssl rand -hex 32)
-ENCRYPTION_KEY=$CURRENT NEW_ENCRYPTION_KEY=$NEW npm run key:rotate   # re-encrypts all creds (txn)
-# then update ENCRYPTION_KEY=$NEW in the secret and redeploy
+# 1. Roll the gateway with ENCRYPTION_KEY=$NEW and ENCRYPTION_KEY_PREVIOUS=$CURRENT (rows are still under $CURRENT).
+# 2. Re-encrypt all credentials (one transaction, rows locked, idempotent):
+ENCRYPTION_KEY=$NEW ENCRYPTION_KEY_PREVIOUS=$CURRENT NEW_ENCRYPTION_KEY=$NEW npm run key:rotate
+# 3. Roll again without ENCRYPTION_KEY_PREVIOUS.
 ```
+
+Skipping step 1 makes replicas that reload the registry after step 2 unable to decrypt: they drop the affected providers (every model 404s) until redeployed.
 
 ## Adding a provider in production
 

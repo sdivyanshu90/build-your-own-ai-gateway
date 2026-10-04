@@ -1,122 +1,135 @@
-# Configuration Reference
+# Configuration reference
 
-All configuration enters the process through one gate — `src/config/index.ts`, a Zod schema
-validated at startup. A malformed value aborts boot with a precise message. There is no
-`process.env` access anywhere else in `src/`. Booleans accept `true/false/1/0/yes/no`.
+All configuration enters the process through one gate - `src/config/index.ts`, a Zod schema validated at startup. A malformed value aborts boot with a message that
+lists **every** offending variable. There is no `process.env` access anywhere else in `src/` (scripts read `DATABASE_URL`/`NEW_ENCRYPTION_KEY` directly, see
+[code-walkthrough.md](./code-walkthrough.md#scripts)). Booleans accept `true/false/1/0/yes/no`; numbers are coerced from strings; integers reject fractions.
+`.env.example`, `k8s/configmap.yaml` and `helm/ai-gateway/values.yaml` only use names from this schema (checked mechanically).
+
+**Status column.** _active_ = read by runtime code; _inert_ = validated but nothing reads it (verified by searching `src/`); _boot_ = read once at process start (change needs a restart).
+Everything in this file is read at boot.
 
 ## Required
 
-| Variable         | Type         | Description                                                |
-| ---------------- | ------------ | ---------------------------------------------------------- |
-| `DATABASE_URL`   | url          | PostgreSQL connection string.                              |
-| `REDIS_URL`      | url          | Redis connection string.                                   |
-| `ENCRYPTION_KEY` | 64 hex chars | AES-256-GCM master key. `openssl rand -hex 32`.            |
-| `ADMIN_API_KEY`  | string ≥16   | Bearer token for the `/admin` API. `openssl rand -hex 24`. |
-
-## Runtime
-
-| Variable     | Type | Default       | Description                              |
-| ------------ | ---- | ------------- | ---------------------------------------- |
-| `NODE_ENV`   | enum | `development` | `development` \| `production` \| `test`. |
-| `LOG_LEVEL`  | enum | `info`        | `trace`…`fatal`.                         |
-| `LOG_PRETTY` | bool | `false`       | Human-readable logs (dev only).          |
-
-## HTTP server
-
-| Variable                 | Type   | Default    | Description                                              |
-| ------------------------ | ------ | ---------- | -------------------------------------------------------- |
-| `HOST`                   | string | `0.0.0.0`  | Bind address.                                            |
-| `PORT`                   | int    | `8080`     | Listen port.                                             |
-| `TRUST_PROXY`            | bool   | `true`     | Honour `X-Forwarded-*`. Enable only behind a trusted LB. |
-| `MAX_REQUEST_BODY_BYTES` | int    | `10485760` | Body size cap (10 MiB) → 413 over.                       |
-| `SHUTDOWN_TIMEOUT_MS`    | int    | `30000`    | Max drain time on shutdown.                              |
-| `KEEP_ALIVE_TIMEOUT_MS`  | int    | `72000`    | Must exceed the upstream LB idle timeout.                |
-
-## PostgreSQL
-
-| Variable                         | Type | Default | Description                         |
-| -------------------------------- | ---- | ------- | ----------------------------------- |
-| `DATABASE_POOL_MAX`              | int  | `20`    | Max pool connections per instance.  |
-| `DATABASE_POOL_MIN`              | int  | `2`     | Warm connections opened at startup. |
-| `DATABASE_IDLE_TIMEOUT_MS`       | int  | `30000` | Idle client eviction.               |
-| `DATABASE_CONNECTION_TIMEOUT_MS` | int  | `5000`  | Acquire timeout.                    |
-| `DATABASE_STATEMENT_TIMEOUT_MS`  | int  | `15000` | Server-side statement timeout.      |
-| `DATABASE_SSL`                   | bool | `false` | Enable TLS to PostgreSQL.           |
-
-## Redis
-
-| Variable                        | Type   | Default | Description                      |
-| ------------------------------- | ------ | ------- | -------------------------------- |
-| `REDIS_KEY_PREFIX`              | string | `gw:`   | Namespacing for shared clusters. |
-| `REDIS_CONNECT_TIMEOUT_MS`      | int    | `5000`  | Connect timeout.                 |
-| `REDIS_MAX_RETRIES_PER_REQUEST` | int    | `3`     | Per-request retry cap.           |
+| Variable         | Type / constraint    | Effect                                                                   |
+| ---------------- | -------------------- | ------------------------------------------------------------------------ |
+| `DATABASE_URL`   | URL                  | PostgreSQL connection string for the pool (`src/database/index.ts`).     |
+| `REDIS_URL`      | URL                  | Redis connection (`src/database/redis.ts`).                              |
+| `ENCRYPTION_KEY` | exactly 64 hex chars | AES-256-GCM master key for provider credentials. `openssl rand -hex 32`. |
+| `ADMIN_API_KEY`  | string, >= 16 chars  | Bearer token for `/admin/*`, compared in constant time.                  |
 
 ## Security
 
-| Variable                 | Type | Default | Description                                    |
-| ------------------------ | ---- | ------- | ---------------------------------------------- |
-| `AUTH_CACHE_TTL_SECONDS` | int  | `30`    | Redis TTL for validated key lookups (sliding). |
+| Variable                  | Type / constraint                     | Default | Effect                                                                                                      |
+| ------------------------- | ------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------- |
+| `ENCRYPTION_KEY_PREVIOUS` | 64 hex chars, optional (`""` = unset) | unset   | Decrypt-only fallback key for zero-downtime rotation ([security.md](./security.md#key-rotation-procedure)). |
+| `AUTH_CACHE_TTL_SECONDS`  | int >= 1                              | `30`    | TTL of the Redis-cached API-key context; refreshed on every hit (sliding).                                  |
 
-## Provider registry & routing
+## Runtime and HTTP server
 
-| Variable                     | Type  | Default         | Description                                                                            |
-| ---------------------------- | ----- | --------------- | -------------------------------------------------------------------------------------- |
-| `REGISTRY_CACHE_TTL_SECONDS` | int   | `60`            | Registry snapshot freshness before reload.                                             |
-| `PROVIDER_TIMEOUT_MS`        | int   | `60000`         | Default upstream timeout (per-provider override in DB).                                |
-| `LOAD_BALANCER_STRATEGY`     | enum  | `LATENCY_BASED` | `ROUND_ROBIN`\|`WEIGHTED_ROUND_ROBIN`\|`LEAST_CONNECTIONS`\|`LATENCY_BASED`\|`RANDOM`. |
-| `LB_LATENCY_EMA_ALPHA`       | float | `0.3`           | EMA smoothing factor (0,1].                                                            |
-| `LB_FAILURE_PENALTY_MS`      | int   | `30000`         | Synthetic latency added on failure.                                                    |
+| Variable                 | Type / constraint | Default    | Effect                                                                                       |
+| ------------------------ | ----------------- | ---------- | -------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------- | ------ | ------ | --------------------------------------------- |
+| `NODE_ENV`               | `development      | production | test`                                                                                        | `development` | `production` disables pino-pretty; also stamped on log lines. |
+| `LOG_LEVEL`              | `trace            | debug      | info                                                                                         | warn          | error                                                         | fatal` | `info` | Pino level. Per-request summaries are `info`. |
+| `LOG_PRETTY`             | bool              | `false`    | pino-pretty output (ignored in production).                                                  |
+| `HOST`                   | string            | `0.0.0.0`  | Bind address.                                                                                |
+| `PORT`                   | int 1-65535       | `8080`     | Listen port.                                                                                 |
+| `TRUST_PROXY`            | bool              | `true`     | Fastify `trustProxy`: honour `X-Forwarded-*` from any peer. Only expose behind your ingress. |
+| `MAX_REQUEST_BODY_BYTES` | int >= 1024       | `10485760` | Fastify `bodyLimit`; larger bodies -> 413.                                                   |
+| `SHUTDOWN_TIMEOUT_MS`    | int >= 0          | `30000`    | Upper bound on draining in-flight requests at SIGTERM.                                       |
+| `KEEP_ALIVE_TIMEOUT_MS`  | int >= 0          | `72000`    | HTTP keep-alive; keep above your LB's idle timeout.                                          |
+
+## PostgreSQL
+
+| Variable                         | Type / constraint | Default | Effect                                                                                                                                                                              |
+| -------------------------------- | ----------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_POOL_MAX`              | int >= 1          | `20`    | Pool size per replica.                                                                                                                                                              |
+| `DATABASE_POOL_MIN`              | int >= 0          | `2`     | Connections opened (and released) at startup by `warmUpPool`; the pool itself has no minimum.                                                                                       |
+| `DATABASE_IDLE_TIMEOUT_MS`       | int >= 0          | `30000` | Idle client eviction.                                                                                                                                                               |
+| `DATABASE_CONNECTION_TIMEOUT_MS` | int >= 1          | `5000`  | Wait for a pooled connection / connect. A dead database makes request-log writes block this long (they run in the background since the queue change, so responses are not delayed). |
+| `DATABASE_STATEMENT_TIMEOUT_MS`  | int >= 0          | `15000` | Applied as server `statement_timeout` and client `query_timeout`.                                                                                                                   |
+| `DATABASE_SSL`                   | bool              | `false` | TLS with `rejectUnauthorized: true`.                                                                                                                                                |
+
+## Redis
+
+| Variable                        | Type / constraint | Default | Effect                                                                                 |
+| ------------------------------- | ----------------- | ------- | -------------------------------------------------------------------------------------- |
+| `REDIS_KEY_PREFIX`              | string            | `gw:`   | Prefix for every key (`redisKeys`). Share a Redis between environments by changing it. |
+| `REDIS_CONNECT_TIMEOUT_MS`      | int >= 1          | `5000`  | ioredis `connectTimeout`.                                                              |
+| `REDIS_MAX_RETRIES_PER_REQUEST` | int >= 1          | `3`     | ioredis `maxRetriesPerRequest`: a command fails after this many reconnect cycles.      |
+
+## Provider registry and routing
+
+| Variable                     | Type / constraint | Default              | Effect                                                                                      |
+| ---------------------------- | ----------------- | -------------------- | ------------------------------------------------------------------------------------------- | ------------- | ------- | --------------- | -------------------------------------------------------------------------------------- |
+| `REGISTRY_CACHE_TTL_SECONDS` | int >= 1          | `60`                 | Age after which the next request reloads the registry.                                      |
+| `PROVIDER_TIMEOUT_MS`        | int >= 1          | `60000`              | **inert** - the per-provider `providers.timeout_ms` column (default 60000) is what applies. |
+| `LOAD_BALANCER_STRATEGY`     | `ROUND_ROBIN      | WEIGHTED_ROUND_ROBIN | LEAST_CONNECTIONS                                                                           | LATENCY_BASED | RANDOM` | `LATENCY_BASED` | Selection strategy ([routing-and-load-balancing.md](./routing-and-load-balancing.md)). |
+| `LB_LATENCY_EMA_ALPHA`       | float 0.01-1      | `0.3`                | EMA smoothing for `LATENCY_BASED`.                                                          |
+| `LB_FAILURE_PENALTY_MS`      | int >= 0          | `30000`              | Synthetic latency sample recorded on failure (LATENCY_BASED).                               |
 
 ## Circuit breaker
 
-| Variable                  | Type | Default | Description                           |
-| ------------------------- | ---- | ------- | ------------------------------------- |
-| `CB_FAILURE_THRESHOLD`    | int  | `5`     | Consecutive failures to OPEN.         |
-| `CB_SUCCESS_THRESHOLD`    | int  | `2`     | Consecutive probe successes to CLOSE. |
-| `CB_TIMEOUT_MS`           | int  | `30000` | OPEN→HALF_OPEN cooldown.              |
-| `CB_WINDOW_MS`            | int  | `60000` | Failure-counter rolling window TTL.   |
-| `CB_HALF_OPEN_MAX_PROBES` | int  | `1`     | Concurrent probes while HALF_OPEN.    |
+| Variable                  | Type / constraint | Default | Effect                                                                        |
+| ------------------------- | ----------------- | ------- | ----------------------------------------------------------------------------- |
+| `CB_FAILURE_THRESHOLD`    | int >= 1          | `5`     | Failures within `CB_WINDOW_MS` (no success in between) that open the breaker. |
+| `CB_SUCCESS_THRESHOLD`    | int >= 1          | `2`     | Probe successes in HALF_OPEN that close it.                                   |
+| `CB_TIMEOUT_MS`           | int >= 1          | `30000` | OPEN duration before the next request may probe; also the probe-slot lease.   |
+| `CB_WINDOW_MS`            | int >= 1          | `60000` | TTL of the failure counter, refreshed on every failure.                       |
+| `CB_HALF_OPEN_MAX_PROBES` | int >= 1          | `1`     | Concurrent probes admitted in HALF_OPEN.                                      |
 
 ## Rate limiter
 
-| Variable                      | Type  | Default  | Description                     |
-| ----------------------------- | ----- | -------- | ------------------------------- |
-| `RATE_LIMIT_ENABLED`          | bool  | `true`   | Master switch.                  |
-| `RATE_LIMIT_DEFAULT_RPM`      | int   | `60`     | Fallback requests/min.          |
-| `RATE_LIMIT_DEFAULT_TPM`      | int   | `100000` | Fallback tokens/min.            |
-| `RATE_LIMIT_BURST_ENABLED`    | bool  | `true`   | Enable the burst window.        |
-| `RATE_LIMIT_BURST_MULTIPLIER` | float | `2`      | Burst limit = multiplier × RPM. |
-| `RATE_LIMIT_BURST_WINDOW_MS`  | int   | `10000`  | Burst window.                   |
+| Variable                      | Type / constraint | Default  | Effect                                                                                                                                          |
+| ----------------------------- | ----------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RATE_LIMIT_ENABLED`          | bool              | `true`   | `false` skips the limiter (and Redis) entirely.                                                                                                 |
+| `RATE_LIMIT_DEFAULT_RPM`      | int >= 1          | `60`     | **inert** - new keys get the `api_keys.rpm_limit` column default (60).                                                                          |
+| `RATE_LIMIT_DEFAULT_TPM`      | int >= 1          | `100000` | **inert** - same, column default 100000.                                                                                                        |
+| `RATE_LIMIT_BURST_ENABLED`    | bool              | `true`   | Maintain a burst sorted set. No observable effect (see [rate-limiting-and-quotas.md](./rate-limiting-and-quotas.md#the-burst-window-is-inert)). |
+| `RATE_LIMIT_BURST_MULTIPLIER` | float >= 1        | `2`      | Burst limit = `ceil(rpm x multiplier)`. No observable effect.                                                                                   |
+| `RATE_LIMIT_BURST_WINDOW_MS`  | int >= 1          | `10000`  | Burst window length. No observable effect.                                                                                                      |
 
-## Semantic cache
+## Cache
 
-| Variable                    | Type | Default  | Description                       |
-| --------------------------- | ---- | -------- | --------------------------------- |
-| `CACHE_ENABLED`             | bool | `true`   | Master switch.                    |
-| `CACHE_DEFAULT_TTL_SECONDS` | int  | `3600`   | Default entry TTL.                |
-| `CACHE_MAX_VALUE_BYTES`     | int  | `262144` | Per-response cache cap (256 KiB). |
+| Variable                    | Type / constraint | Default  | Effect                                     |
+| --------------------------- | ----------------- | -------- | ------------------------------------------ |
+| `CACHE_ENABLED`             | bool              | `true`   | Master switch for the exact-match cache.   |
+| `CACHE_DEFAULT_TTL_SECONDS` | int >= 1          | `3600`   | TTL of stored responses.                   |
+| `CACHE_MAX_VALUE_BYTES`     | int >= 1          | `262144` | Responses larger than this are not cached. |
 
-## Retry (upstream)
+## Retry
 
-| Variable              | Type | Default | Description   |
-| --------------------- | ---- | ------- | ------------- |
-| `RETRY_MAX_ATTEMPTS`  | int  | `3`     | Max attempts. |
-| `RETRY_BASE_DELAY_MS` | int  | `200`   | Base backoff. |
-| `RETRY_MAX_DELAY_MS`  | int  | `5000`  | Backoff cap.  |
+| Variable              | Type / constraint | Default | Effect                                                                                                                                                      |
+| --------------------- | ----------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RETRY_MAX_ATTEMPTS`  | int >= 1          | `3`     | Defaults of `src/utils/retry.ts`, which no runtime path calls: **inert** in practice ([reliability.md](./reliability.md#what-retry-means-in-this-gateway)). |
+| `RETRY_BASE_DELAY_MS` | int >= 1          | `200`   | as above                                                                                                                                                    |
+| `RETRY_MAX_DELAY_MS`  | int >= 1          | `5000`  | as above                                                                                                                                                    |
 
 ## Observability
 
-| Variable                      | Type   | Default      | Description                   |
-| ----------------------------- | ------ | ------------ | ----------------------------- |
-| `METRICS_ENABLED`             | bool   | `true`       | Expose `/metrics`.            |
-| `OTEL_ENABLED`                | bool   | `false`      | Enable OpenTelemetry tracing. |
-| `OTEL_SERVICE_NAME`           | string | `ai-gateway` | Service name in traces/logs.  |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | url    | (unset)      | OTLP collector base URL.      |
-| `OTEL_TRACES_SAMPLER_RATIO`   | float  | `0.1`        | Head sampling ratio [0,1].    |
+| Variable                      | Type / constraint | Default      | Effect                                                                                                                                                                                                                                              |
+| ----------------------------- | ----------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `METRICS_ENABLED`             | bool              | `true`       | Registers `GET /metrics` (unauthenticated). The metric objects are updated regardless.                                                                                                                                                              |
+| `OTEL_ENABLED`                | bool              | `false`      | Start the OpenTelemetry Node SDK (auto-instrumentation, OTLP/HTTP exporter). For complete instrumentation the SDK must load before other modules (`NODE_OPTIONS=--import`); the in-process start used here instruments what is imported afterwards. |
+| `OTEL_SERVICE_NAME`           | string            | `ai-gateway` | Resource service name; also the `service` field on log lines and the Postgres `application_name`.                                                                                                                                                   |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | URL, optional     | unset        | Base URL; traces are sent to `<url>/v1/traces`.                                                                                                                                                                                                     |
+| `OTEL_TRACES_SAMPLER_RATIO`   | float 0-1         | `0.1`        | Head sampling ratio for new traces (ParentBased + TraceIdRatio). Applied since the sampler fix; previously every request was traced.                                                                                                                |
 
 ## Background jobs
 
-| Variable                     | Type | Default | Description                      |
-| ---------------------------- | ---- | ------- | -------------------------------- |
-| `HEALTH_MONITOR_ENABLED`     | bool | `true`  | Run the provider health monitor. |
-| `HEALTH_MONITOR_INTERVAL_MS` | int  | `30000` | Probe interval.                  |
+| Variable                     | Type / constraint | Default | Effect                                          |
+| ---------------------------- | ----------------- | ------- | ----------------------------------------------- |
+| `HEALTH_MONITOR_ENABLED`     | bool              | `true`  | Run the provider health prober on this replica. |
+| `HEALTH_MONITOR_INTERVAL_MS` | int >= 1000       | `30000` | Probe period.                                   |
+
+## Script-only variables
+
+| Variable             | Used by                             | Meaning                                                                        |
+| -------------------- | ----------------------------------- | ------------------------------------------------------------------------------ |
+| `NEW_ENCRYPTION_KEY` | `scripts/rotate-encryption-key.ts`  | 64-hex key to re-encrypt under.                                                |
+| `OPENAI_API_KEY`     | `scripts/seed-dev.ts`               | Upstream key stored (encrypted) for the seeded provider; placeholder if unset. |
+| `DATABASE_URL`       | `migrate.ts`, `create-partition.ts` | Read directly so these do not need the encryption or admin keys.               |
+| `LOG_LEVEL`          | `migrate.ts`, `create-partition.ts` | Pino level for the scripts.                                                    |
+
+## Benchmark-harness variables
+
+`BENCH_*`, `MOCK_*`, `GW_CPUS`, `GW_PROFILE_DIR`, `MOCK_CPUS`, `LOAD_CPUS` are read only by `benchmarks/` (see [benchmarks.md](./benchmarks.md#reproducing)).
