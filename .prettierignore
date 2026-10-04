@@ -1,0 +1,5 @@
+helm/ai-gateway/templates/
+coverage/
+dist/
+node_modules/
+benchmarks/results/
