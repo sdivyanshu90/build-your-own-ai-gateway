@@ -48,7 +48,7 @@ failed smoke test.
 1. `ENCRYPTION_KEY` generated (`openssl rand -hex 32`) and stored in the secrets manager.
 2. `ADMIN_API_KEY` generated (`openssl rand -hex 24`).
 3. Managed PostgreSQL provisioned with TLS; `DATABASE_SSL=true`.
-4. Managed Redis (HA) provisioned; `maxmemory-policy allkeys-lru`.
+4. Managed Redis (HA) provisioned; `maxmemory-policy volatile-lru`.
 5. Migrations applied (Helm hook) and verified.
 6. Secrets delivered via External Secrets / Vault, not committed.
 7. Image scanned by Trivy (0 critical) and `npm audit` clean (0 high).
