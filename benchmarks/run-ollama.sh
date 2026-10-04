@@ -60,7 +60,7 @@ echo "ts,temp_c,throttle_reasons" > "$THERMAL"
 
 # ---- services -----------------------------------------------------------------------------------
 mkdir -p "$OD/models"
-taskset -c 6,7 nice -n 15 "$OD/bin/ollama" serve >"$HERE/results/ollama-serve.log" 2>&1 & PIDS+=($!)
+taskset -c 4,6,7 "$OD/bin/ollama" serve >"$HERE/results/ollama-serve.log" 2>&1 & PIDS+=($!)
 for _ in $(seq 1 60); do curl -fs http://127.0.0.1:11434/api/version >/dev/null 2>&1 && break; sleep 1; done
 log "ollama $(curl -s http://127.0.0.1:11434/api/version)"
 "$OD/bin/ollama" pull "$MODEL" 2>&1 | tail -1 | tee -a "$LOG"

@@ -44,7 +44,11 @@ export function runMeta() {
 export async function admin(method, path, body) {
   const res = await fetch(`${GATEWAY}/admin${path}`, {
     method,
-    headers: { authorization: `Bearer ${ADMIN_KEY}`, 'content-type': 'application/json' },
+    headers: {
+      authorization: `Bearer ${ADMIN_KEY}`,
+      // Fastify answers 400 to an empty body that claims to be JSON.
+      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await res.text();
