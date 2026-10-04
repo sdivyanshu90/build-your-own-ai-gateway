@@ -180,14 +180,40 @@ Each item below was *discovered* by these runs (or confirmed by them), then fixe
 ## Interpretation
 
 - The gateway's per-request CPU cost is modest: with the limiter off one physical core (two hyper-threads) sustained ~480 rps at 119% CPU of a 200% allowance, p50 +106 ms over a 20 ms upstream at c=64
-  (queueing, not service time: c=64 / 479 rps = 134 ms Little's-law latency). Treat ~500 rps per core as the order of magnitude for this build *before* the fixes, dominated by JSON handling, one Postgres commit and about
-  six Redis round trips per request.
+  (queueing, not service time: c=64 / 479 rps = 134 ms Little's-law latency). Treat ~500 rps per core as the order of magnitude for this build *before* the fixes, dominated by JSON handling, one Postgres commit and 6-7 Redis
+  commands per request (from `INFO commandstats`).
 - Overhead numbers at c>1 are queueing delay. For a latency-overhead figure use c=1 (adds ~15-24 ms with a hot key; the streaming TTFB overhead at c=1 was +14 ms).
 - Memory is small and flat: ~109 MiB container memory idle and under load (RSS 161 MB per `/metrics`), nowhere near the 512 MiB limit; `GATEWAY.md`'s "~200 MB baseline" was an over-estimate for this configuration.
 
 ## Results after the performance fixes
 
 **Not available.** The post-fix re-run was queued behind other work on the shared machine's heavy-job lock and did not get a slot before the deadline. The two performance fixes (`cccfdfd` running TPM sum, `0518bcb` background request log) are covered by correctness tests (integration suite against real Redis, unit tests) but their effect on throughput is **not measured here**. Reproduce with `BENCH_LABEL=after benchmarks/run-all.sh F` (see [../benchmarks/README.md](../benchmarks/README.md)); expected direction: the limiter-off row above is the ceiling the fix aims for.
+
+## Real local model (Ollama, qwen2.5:0.5b) - attempted, not completed
+
+The owner asked for a zero-spend "real model" run on the laptop's NVIDIA MX330 (2 GB VRAM, Pascal) using Ollama v0.35.1 (release tarball, no sudo). The harness is committed
+(`benchmarks/run-ollama.sh` and the `ollama` / `ollamaFailover` phases of `bench.mjs`: streaming TTFT and decode tokens/s direct vs through the gateway, non-streaming latency, usage accounting vs Ollama's
+reported usage, failover to the real model behind a mock that answers 503) but **produced no results**:
+
+- Thermal guard: the GPU idled at 85-86 C (throttle reason `0x20`, software thermal slowdown) and never dropped below the mandatory 80 C within the 5-minute wait, so the guard correctly refused GPU
+  inference and forced CPU-only (`CUDA_VISIBLE_DEVICES=-1`). Peak temperature during the attempt: 86 C (`benchmarks/results/ollama-thermal.csv`, 98 samples), well under the 90 C trip.
+- CPU attempt: `llama-server` took 139 s to start on the two logical CPUs left to it and the first (warm-up) request had not produced a response after 5 minutes, at which point the harness' HTTP client
+  gave up (`HeadersTimeoutError`; Ollama logged a 500 after 5 m 1 s). The machine was heavily shared at the time, so this says more about CPU availability than about the gateway.
+- A second attempt (with Ollama un-niced and on three CPUs) was queued behind other work on the heavy-job lock and cancelled at the project cut-off. Ollama and its model files were stopped/deleted.
+
+Nothing in this document depends on the real-model run. To run it yourself: download the Ollama tarball, then `flock ... benchmarks/run-ollama.sh <ollama-dir>` (see the header comment of the script).
+
+## Real upstream smoke test
+
+One real call (the cap set by the owner, to protect scarce credits) was made through the gateway to OpenRouter's OpenAI-compatible API (`https://openrouter.ai/api/v1`, OpenAI adapter, model
+`~deepseek/deepseek-v4-flash-latest` - the model the owner's portfolio project uses - `max_tokens: 32`, `reasoning: {effort: "low", exclude: true}`, non-streaming). The provider credential was supplied through
+the admin API into an ephemeral database; it is not stored in the repository, results or logs.
+
+**Result: inconclusive.** The gateway answered **HTTP 503 `all_providers_failed` after 4.7 s** (`benchmarks/results/openrouter-smoke.json`). That means the upstream replied with a *retryable* failure
+(429, 5xx, 408, or 401/402/403/404 which the gateway maps to retryable 502) and the only candidate was exhausted; the gateway's client-facing error deliberately does not carry the upstream status, and the
+ephemeral gateway logs were not kept, so the exact upstream status was **not recorded**. No tokens were billed or returned (`usage: null`). The owner's cap on real calls was reached, so the call was not
+repeated and no streaming call was made. This is a gap worth noting in its own right: `AllProvidersFailedError` keeps the cause internally but nothing exposes it to the operator except the server log.
+The mock-upstream results above, not this call, are the evidence for gateway behaviour.
 
 ## Reproducing
 
