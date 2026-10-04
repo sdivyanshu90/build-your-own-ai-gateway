@@ -104,6 +104,11 @@ export const metrics = {
     labelNames: ['provider'] as const,
     registers: [registry],
   }),
+  requestLogsDropped: new Counter({
+    name: 'gateway_request_logs_dropped_total',
+    help: 'Request log entries dropped because the background write queue was full.',
+    registers: [registry],
+  }),
   inFlight: new Gauge({
     name: 'gateway_in_flight_requests',
     help: 'Requests currently being processed.',

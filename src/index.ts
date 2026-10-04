@@ -112,6 +112,7 @@ function registerSignalHandlers(
       await withTimeout(app.close(), config.SHUTDOWN_TIMEOUT_MS, 'app.close');
       // 2. Stop background jobs.
       await healthMonitor.stop();
+      await getCostTracker().flush(); // let queued request-log inserts land
       // 3. Close shared connections in order.
       await closeRedis();
       await closeDatabase();

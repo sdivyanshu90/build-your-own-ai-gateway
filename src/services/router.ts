@@ -110,7 +110,7 @@ export class GatewayRouter {
       const cached = await this.deps.cache.get(request);
       if (cached !== null) {
         recordCacheEvent(CACHE_STATUS.HIT);
-        await this.deps.costTracker.recordRequest({
+        this.deps.costTracker.enqueueRequest({
           apiKeyId: context.apiKeyId,
           providerId: null,
           modelId: canonicalModel,
@@ -164,7 +164,7 @@ export class GatewayRouter {
       'success',
     );
     await this.deps.costTracker.addSpend(context.apiKeyId, cost);
-    await this.deps.costTracker.recordRequest({
+    this.deps.costTracker.enqueueRequest({
       apiKeyId: context.apiKeyId,
       providerId: provider.id,
       modelId: canonicalModel,
@@ -301,7 +301,7 @@ export class GatewayRouter {
           errored ? 'error' : 'success',
         );
         await costTracker.addSpend(context.apiKeyId, cost);
-        await costTracker.recordRequest({
+        costTracker.enqueueRequest({
           apiKeyId: context.apiKeyId,
           providerId: provider.id,
           modelId: canonicalModel,
@@ -375,7 +375,7 @@ export class GatewayRouter {
       'success',
     );
     await this.deps.costTracker.addSpend(context.apiKeyId, cost);
-    await this.deps.costTracker.recordRequest({
+    this.deps.costTracker.enqueueRequest({
       apiKeyId: context.apiKeyId,
       providerId: provider.id,
       modelId: canonicalModel,

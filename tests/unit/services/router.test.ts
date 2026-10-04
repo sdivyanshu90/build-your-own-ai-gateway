@@ -56,7 +56,7 @@ interface Harness {
   router: GatewayRouter;
   lb: { release: Fn; recordFailure: Fn };
   cb: { release: Fn; recordFailure: Fn };
-  cost: { recordRequest: Fn };
+  cost: { enqueueRequest: Fn };
 }
 
 function makeDeps(providers: BaseProvider[], breaker: Record<string, unknown> = {}): Harness {
@@ -76,7 +76,7 @@ function makeDeps(providers: BaseProvider[], breaker: Record<string, unknown> = 
   const cost = {
     estimateCost: vi.fn((_m: unknown, p: number, c: number) => p * 0.001 + c * 0.002),
     addSpend: vi.fn(() => Promise.resolve()),
-    recordRequest: vi.fn(() => Promise.resolve()),
+    enqueueRequest: vi.fn(() => Promise.resolve()),
     isOverBudget: vi.fn(() => Promise.resolve(false)),
   };
   const deps = {
@@ -194,7 +194,7 @@ describe('router streaming usage', () => {
 
     expect(seen[0]?.stream_options?.include_usage).toBe(true);
     expect(forwarded.some((c) => c.usage !== null && c.usage !== undefined)).toBe(false);
-    const logged = (cost.recordRequest.mock.calls[0] as unknown as [Record<string, number>])[0];
+    const logged = (cost.enqueueRequest.mock.calls[0] as unknown as [Record<string, number>])[0];
     expect(logged).toMatchObject({ promptTokens: 7, completionTokens: 5, totalTokens: 12 });
   });
 
