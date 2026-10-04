@@ -25,13 +25,16 @@ async function rotate(): Promise<void> {
   const newKey = Buffer.from(newKeyHex, 'hex');
 
   const db = getDb();
-  const rows = await db
-    .select({ id: providers.id, encryptedApiKey: providers.encryptedApiKey })
-    .from(providers);
-  console.log(`Rotating ${rows.length} provider credential(s)…`);
 
   let rotated = 0;
   await db.transaction(async (tx) => {
+    // Read inside the transaction with row locks, so a provider created or
+    // edited concurrently cannot be missed (and left under the old key).
+    const rows = await tx
+      .select({ id: providers.id, encryptedApiKey: providers.encryptedApiKey })
+      .from(providers)
+      .for('update');
+    console.log(`Rotating ${rows.length} provider credential(s)…`);
     for (const row of rows) {
       // Decrypt with the CURRENT key (the module default), re-encrypt with NEW.
       const plaintext = decrypt(row.encryptedApiKey);
