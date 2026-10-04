@@ -52,6 +52,12 @@ const MASTER_KEY: Buffer = (() => {
   return key;
 })();
 
+/** Optional previous master key (decrypt-only), for zero-downtime rotation. */
+const PREVIOUS_MASTER_KEY: Buffer | undefined =
+  config.ENCRYPTION_KEY_PREVIOUS !== undefined
+    ? Buffer.from(config.ENCRYPTION_KEY_PREVIOUS, 'hex')
+    : undefined;
+
 /**
  * Encrypt UTF-8 plaintext with AES-256-GCM, returning a self-describing,
  * versioned envelope string safe to store in a text column.
@@ -80,7 +86,35 @@ export function encrypt(plaintext: string, key: Buffer = MASTER_KEY): string {
  * a malformed envelope, a wrong key, or a tampered ciphertext (the GCM auth tag
  * verification fails and is surfaced as an error, never silently ignored).
  */
-export function decrypt(envelope: string, key: Buffer = MASTER_KEY): string {
+export function decrypt(envelope: string, key?: Buffer): string {
+  if (key !== undefined) {
+    return decryptWithKey(envelope, key);
+  }
+  const keys = PREVIOUS_MASTER_KEY !== undefined ? [MASTER_KEY, PREVIOUS_MASTER_KEY] : [MASTER_KEY];
+  return decryptWithKeys(envelope, keys);
+}
+
+/**
+ * Try each key in order and return the first successful decryption. Malformed
+ * envelopes fail immediately (no other key can fix them); an authentication
+ * failure moves on to the next key.
+ */
+export function decryptWithKeys(envelope: string, keys: readonly Buffer[]): string {
+  let lastError: unknown;
+  for (const candidate of keys) {
+    try {
+      return decryptWithKey(envelope, candidate);
+    } catch (error) {
+      lastError = error;
+      if (error instanceof CryptoError && !error.message.startsWith('Decryption failed')) {
+        throw error;
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new CryptoError('Decryption failed.');
+}
+
+function decryptWithKey(envelope: string, key: Buffer): string {
   assertKeyLength(key);
   const parts = envelope.split('.');
   if (parts.length !== 4) {

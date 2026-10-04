@@ -53,6 +53,8 @@ secrets:
   DATABASE_URL: ''
   REDIS_URL: ''
   ENCRYPTION_KEY: ''
+  # Optional decrypt-only previous key, set during rotation (see docs/security.md).
+  ENCRYPTION_KEY_PREVIOUS: ''
   ADMIN_API_KEY: ''
 
 # Run database migrations as a pre-install/pre-upgrade Helm hook Job.

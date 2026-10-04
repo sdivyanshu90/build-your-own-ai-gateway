@@ -91,6 +91,15 @@ const configSchema = z.object({
   // ── Security / crypto ────────────────────────────────────────────────────
   /** AES-256-GCM master key for provider-credential envelope encryption. */
   ENCRYPTION_KEY: hex32ByteKey,
+  /**
+   * Optional previous master key, used ONLY to decrypt. Lets key rotation be
+   * zero-downtime: deploy with ENCRYPTION_KEY=new + ENCRYPTION_KEY_PREVIOUS=old,
+   * run the rotation script, then remove the previous key.
+   */
+  ENCRYPTION_KEY_PREVIOUS: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    hex32ByteKey.optional(),
+  ),
   /** Admin API bearer token. Must be long and high-entropy in production. */
   ADMIN_API_KEY: z.string().min(16),
   /** TTL for the Redis-cached, validated API-key lookup (auth fast path). */

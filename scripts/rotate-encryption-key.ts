@@ -1,13 +1,21 @@
 /**
  * Rotate the master encryption key.
  *
- * Re-encrypts every provider credential from the CURRENT key (ENCRYPTION_KEY) to
- * a NEW key (NEW_ENCRYPTION_KEY). The whole re-encryption runs in a single
- * transaction, so the table is never left half-rotated. After this completes
- * successfully, update ENCRYPTION_KEY to the new value and redeploy.
+ * Re-encrypts every provider credential under NEW_ENCRYPTION_KEY. Credentials
+ * are decrypted with ENCRYPTION_KEY and, if set, ENCRYPTION_KEY_PREVIOUS, so the
+ * script is idempotent and safe to re-run. The whole re-encryption runs in a
+ * single transaction with row locks, so the table is never left half-rotated.
  *
- * Generate a new key first:  openssl rand -hex 32
- * Run:  ENCRYPTION_KEY=<old> NEW_ENCRYPTION_KEY=<new> npm run key:rotate
+ * Zero-downtime procedure (see docs/security.md):
+ *   1. openssl rand -hex 32            -> NEW
+ *   2. roll the gateway with ENCRYPTION_KEY=NEW and ENCRYPTION_KEY_PREVIOUS=OLD
+ *      (rows are still under OLD; replicas decrypt them via the previous key)
+ *   3. ENCRYPTION_KEY=NEW ENCRYPTION_KEY_PREVIOUS=OLD NEW_ENCRYPTION_KEY=NEW \
+ *        npm run key:rotate
+ *   4. roll again without ENCRYPTION_KEY_PREVIOUS
+ *
+ * Without step 2, replicas that reload the provider registry after step 3 cannot
+ * decrypt and would drop every provider from rotation.
  */
 import { eq } from 'drizzle-orm';
 
