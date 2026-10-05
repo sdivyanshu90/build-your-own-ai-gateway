@@ -13,7 +13,7 @@ running in a `node:22.14-bookworm-slim` container against Postgres 16 and Redis 
 | `deps`      | `node:22-slim`                                | `npm ci` (all deps)                                                                                             |
 | `builder`   | from `deps`                                   | `npm run build` -> `dist/`; also the **migrator image** (keeps `tsx`, `src/` SQL, `scripts/`)                   |
 | `prod-deps` | `node:22-slim`                                | `npm ci --omit=dev`                                                                                             |
-| `runtime`   | `gcr.io/distroless/nodejs22-debian12:nonroot` | `node_modules` (prod) + `dist` + `package.json`; `USER nonroot`; `CMD ["--enable-source-maps","dist/index.js"]` |
+| `runtime`   | `gcr.io/distroless/nodejs22-debian13:nonroot` | `node_modules` (prod) + `dist` + `package.json`; `USER nonroot`; `CMD ["--enable-source-maps","dist/index.js"]` |
 
 Runtime has no shell: health probes use `/nodejs/bin/node -e "fetch(...)"` (Compose) or HTTP probes (Kubernetes). `package.json` declares
 `engines.node >=22 <23`; the image satisfies that. (Local development on another Node major works for tests, but the benchmarks were run in

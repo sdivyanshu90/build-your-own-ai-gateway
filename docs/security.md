@@ -106,7 +106,7 @@ unauthenticated endpoints.
 
 ## Supply chain and runtime hardening
 
-- Dockerfile: multi-stage; runtime image `gcr.io/distroless/nodejs22-debian12:nonroot`, production dependencies only, no shell.
+- Dockerfile: multi-stage; runtime image `gcr.io/distroless/nodejs22-debian13:nonroot`, production dependencies only, no shell.
 - Kubernetes: `runAsNonRoot`, uid 65532, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, all capabilities dropped,
   `RuntimeDefault` seccomp (see `helm/ai-gateway/values.yaml`, `k8s/deployment.yaml`).
-- CI: `npm audit --audit-level=high`, Trivy image scan failing on CRITICAL (`.github/workflows/ci.yml`).
+- CI: `npm audit --audit-level=high`, Trivy image scan failing on CRITICAL (`.github/workflows/ci.yml`; the action is pinned to a commit SHA). Both pass as of 2026-10-05: 0 high/critical advisories, 0 fixable CRITICAL CVEs in the image.

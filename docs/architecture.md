@@ -235,7 +235,7 @@ them: use `volatile-lru` (see [deployment.md](./deployment.md)). A Redis flush r
 
 ## 8. Technology choices
 
-- **Fastify 4** - low overhead, encapsulated plugins: `authPreHandler` is scoped to the `/v1` plugin
+- **Fastify 5** - low overhead, encapsulated plugins: `authPreHandler` is scoped to the `/v1` plugin
   and `adminAuthPreHandler` to `/admin` (`src/app.ts`).
 - **Drizzle ORM + hand-written SQL migrations** - Drizzle for typed queries; the migrations carry the
   DDL it cannot express (partitioned table, triggers, partial indexes, materialised view).

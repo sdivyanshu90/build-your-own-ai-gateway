@@ -4,7 +4,7 @@ An **OpenAI-compatible** reverse proxy for LLM providers: one endpoint in front 
 breaker, per-key sliding-window rate limits and budgets, an exact-match response cache, cost tracking, encrypted provider credentials, and Prometheus metrics. Point an existing OpenAI SDK at it
 (`base_url=http://gateway/v1`) and nothing else changes.
 
-TypeScript (strict, ESM) - Node 22 - Fastify 4 - PostgreSQL 16 (Drizzle, monthly-partitioned audit log) - Redis 7 (Lua scripts) - Zod - Pino - prom-client - Vitest + testcontainers - Docker
+TypeScript (strict, ESM) - Node 22 - Fastify 5 - PostgreSQL 16 (Drizzle, monthly-partitioned audit log) - Redis 7 (Lua scripts) - Zod - Pino - prom-client - Vitest + testcontainers - Docker
 (distroless) - Kubernetes / Helm.
 
 ```
