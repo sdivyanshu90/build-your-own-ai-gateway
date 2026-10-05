@@ -33,18 +33,21 @@ export default defineConfig({
         'src/database/migrations/**',
         'src/database/schema.ts',
       ],
-      // Ratchet, not aspiration: measured 55/71/69/55 (lines/branches/funcs/stmts)
-      // on 2026-10-04. Unit tests deliberately skip code that needs real Redis
-      // or Postgres (Lua scripts, routes, admin API, registry); that code is
-      // exercised by the integration/e2e/security suites, whose coverage is not
-      // merged into this report. The original 95/95/90/95 gate could never pass
-      // on this suite (it measured 35.67% lines) so it kept CI permanently red.
-      // Raise these as unit coverage grows; never lower them.
+      // Ratchet, not aspiration. Unit tests deliberately skip code that needs
+      // real Redis or Postgres (Lua scripts, routes, admin API, registry); that
+      // code is exercised by the integration/e2e/security suites, whose coverage
+      // is not merged into this report. The original 95/95/90/95 gate could
+      // never pass on this suite (it measured 35.67% lines).
+      // Re-baselined on 2026-10-05 for vitest 5: its AST-aware v8 remapping
+      // counts differently, so the same tests on the same src/ measure
+      // 52.4/48.2/50.2/51.4 (lines/branches/funcs/stmts) where vitest 2
+      // reported 54.9/71.4/69.4/54.9. Raise these as unit coverage grows;
+      // never lower them.
       thresholds: {
-        lines: 53,
-        functions: 67,
-        branches: 70,
-        statements: 53,
+        lines: 52,
+        functions: 50,
+        branches: 48,
+        statements: 51,
       },
     },
   },

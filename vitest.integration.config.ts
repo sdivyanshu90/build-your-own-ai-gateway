@@ -20,11 +20,10 @@ export default defineConfig({
     ],
     exclude: ['tests/unit/**', 'node_modules/**'],
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    // One worker, shared module state: the vitest >= 4 replacement for
+    // poolOptions.forks.singleFork.
+    maxWorkers: 1,
+    isolate: false,
     fileParallelism: false,
     sequence: {
       concurrent: false,

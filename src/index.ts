@@ -44,8 +44,8 @@ async function initTracing(): Promise<() => Promise<void>> {
     const { getNodeAutoInstrumentations } =
       await import('@opentelemetry/auto-instrumentations-node');
     const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http');
-    const { Resource } = await import('@opentelemetry/resources');
-    const { SemanticResourceAttributes } = await import('@opentelemetry/semantic-conventions');
+    const { resourceFromAttributes } = await import('@opentelemetry/resources');
+    const { ATTR_SERVICE_NAME } = await import('@opentelemetry/semantic-conventions');
 
     const sdk = new NodeSDK({
       // Head-based sampling at OTEL_TRACES_SAMPLER_RATIO for new traces, honouring
@@ -54,8 +54,8 @@ async function initTracing(): Promise<() => Promise<void>> {
       sampler: new tracing.ParentBasedSampler({
         root: new tracing.TraceIdRatioBasedSampler(config.OTEL_TRACES_SAMPLER_RATIO),
       }),
-      resource: new Resource({
-        [SemanticResourceAttributes.SERVICE_NAME]: config.OTEL_SERVICE_NAME,
+      resource: resourceFromAttributes({
+        [ATTR_SERVICE_NAME]: config.OTEL_SERVICE_NAME,
       }),
       traceExporter:
         config.OTEL_EXPORTER_OTLP_ENDPOINT !== undefined

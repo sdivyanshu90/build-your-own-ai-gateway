@@ -26,17 +26,17 @@ Everything in this file is read at boot.
 
 ## Runtime and HTTP server
 
-| Variable                 | Type / constraint | Default    | Effect                                                                                       |
+| Variable | Type / constraint | Default | Effect |
 | ------------------------ | ----------------- | ---------- | -------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------- | ------ | ------ | --------------------------------------------- |
-| `NODE_ENV`               | `development      | production | test`                                                                                        | `development` | `production` disables pino-pretty; also stamped on log lines. |
-| `LOG_LEVEL`              | `trace            | debug      | info                                                                                         | warn          | error                                                         | fatal` | `info` | Pino level. Per-request summaries are `info`. |
-| `LOG_PRETTY`             | bool              | `false`    | pino-pretty output (ignored in production).                                                  |
-| `HOST`                   | string            | `0.0.0.0`  | Bind address.                                                                                |
-| `PORT`                   | int 1-65535       | `8080`     | Listen port.                                                                                 |
-| `TRUST_PROXY`            | bool              | `true`     | Fastify `trustProxy`: honour `X-Forwarded-*` from any peer. Only expose behind your ingress. |
-| `MAX_REQUEST_BODY_BYTES` | int >= 1024       | `10485760` | Fastify `bodyLimit`; larger bodies -> 413.                                                   |
-| `SHUTDOWN_TIMEOUT_MS`    | int >= 0          | `30000`    | Upper bound on draining in-flight requests at SIGTERM.                                       |
-| `KEEP_ALIVE_TIMEOUT_MS`  | int >= 0          | `72000`    | HTTP keep-alive; keep above your LB's idle timeout.                                          |
+| `NODE_ENV` | `development      | production | test` | `development` | `production` disables pino-pretty; also stamped on log lines. |
+| `LOG_LEVEL` | `trace            | debug      | info                                                                                         | warn          | error                                                         | fatal` | `info` | Pino level. Per-request summaries are `info`. |
+| `LOG_PRETTY` | bool | `false` | pino-pretty output (ignored in production). |
+| `HOST` | string | `0.0.0.0` | Bind address. |
+| `PORT` | int 1-65535 | `8080` | Listen port. |
+| `TRUST_PROXY` | bool | `true` | Fastify `trustProxy`: honour `X-Forwarded-*` from any peer. Only expose behind your ingress. |
+| `MAX_REQUEST_BODY_BYTES` | int >= 1024 | `10485760` | Fastify `bodyLimit`; larger bodies -> 413. |
+| `SHUTDOWN_TIMEOUT_MS` | int >= 0 | `30000` | Upper bound on draining in-flight requests at SIGTERM. |
+| `KEEP_ALIVE_TIMEOUT_MS` | int >= 0 | `72000` | HTTP keep-alive; keep above your LB's idle timeout. |
 
 ## PostgreSQL
 
@@ -59,13 +59,13 @@ Everything in this file is read at boot.
 
 ## Provider registry and routing
 
-| Variable                     | Type / constraint | Default              | Effect                                                                                      |
+| Variable | Type / constraint | Default | Effect |
 | ---------------------------- | ----------------- | -------------------- | ------------------------------------------------------------------------------------------- | ------------- | ------- | --------------- | -------------------------------------------------------------------------------------- |
-| `REGISTRY_CACHE_TTL_SECONDS` | int >= 1          | `60`                 | Age after which the next request reloads the registry.                                      |
-| `PROVIDER_TIMEOUT_MS`        | int >= 1          | `60000`              | **inert** - the per-provider `providers.timeout_ms` column (default 60000) is what applies. |
-| `LOAD_BALANCER_STRATEGY`     | `ROUND_ROBIN      | WEIGHTED_ROUND_ROBIN | LEAST_CONNECTIONS                                                                           | LATENCY_BASED | RANDOM` | `LATENCY_BASED` | Selection strategy ([routing-and-load-balancing.md](./routing-and-load-balancing.md)). |
-| `LB_LATENCY_EMA_ALPHA`       | float 0.01-1      | `0.3`                | EMA smoothing for `LATENCY_BASED`.                                                          |
-| `LB_FAILURE_PENALTY_MS`      | int >= 0          | `30000`              | Synthetic latency sample recorded on failure (LATENCY_BASED).                               |
+| `REGISTRY_CACHE_TTL_SECONDS` | int >= 1 | `60` | Age after which the next request reloads the registry. |
+| `PROVIDER_TIMEOUT_MS` | int >= 1 | `60000` | **inert** - the per-provider `providers.timeout_ms` column (default 60000) is what applies. |
+| `LOAD_BALANCER_STRATEGY` | `ROUND_ROBIN      | WEIGHTED_ROUND_ROBIN | LEAST_CONNECTIONS                                                                           | LATENCY_BASED | RANDOM` | `LATENCY_BASED` | Selection strategy ([routing-and-load-balancing.md](./routing-and-load-balancing.md)). |
+| `LB_LATENCY_EMA_ALPHA` | float 0.01-1 | `0.3` | EMA smoothing for `LATENCY_BASED`. |
+| `LB_FAILURE_PENALTY_MS` | int >= 0 | `30000` | Synthetic latency sample recorded on failure (LATENCY_BASED). |
 
 ## Circuit breaker
 

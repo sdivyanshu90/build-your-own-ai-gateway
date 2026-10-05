@@ -56,21 +56,21 @@ Errors after the first streamed byte cannot change the status; the stream just e
 Body fields the gateway validates (`chatCompletionRequestSchema`; additional OpenAI fields pass through to OpenAI-style upstreams, and are dropped by the other adapters -
 [providers.md](./providers.md#parameter-support-matrix)):
 
-| Field                                   | Type / limit              | Notes                                                                                                                                               |
+| Field | Type / limit | Notes |
 | --------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------------------------------- |
-| `model`                                 | string, 1-256             | Resolved via exact match then aliases.                                                                                                              |
-| `messages`                              | array, >= 1               | Roles `system`, `user`, `assistant`, `tool`. `content` string or parts (`text`, `image_url`); `assistant.tool_calls`; `tool.tool_call_id` required. |
-| `temperature`                           | 0-2                       | `0` + `seed` makes the request cacheable.                                                                                                           |
-| `top_p`                                 | 0-1                       |                                                                                                                                                     |
-| `n`                                     | 1-128                     | Only OpenAI-style upstreams return multiple choices.                                                                                                |
-| `stream`                                | bool                      | SSE; see below.                                                                                                                                     |
-| `stream_options.include_usage`          | bool                      | Emit a final usage chunk (the gateway always collects usage internally).                                                                            |
-| `stop`                                  | string or up to 4 strings |                                                                                                                                                     |
-| `max_tokens`, `max_completion_tokens`   | int >= 1                  | Anthropic/Gemini default to the model's `max_output_tokens`, else 4096.                                                                             |
-| `presence_penalty`, `frequency_penalty` | -2..2                     |                                                                                                                                                     |
-| `logit_bias`, `user`, `seed`            |                           | `seed` is also the cache opt-in flag.                                                                                                               |
-| `tools`, `tool_choice`                  | function tools            | `none                                                                                                                                               | auto               | required` or a named function.   |
-| `response_format`                       | `{type: text              | json_object                                                                                                                                         | json_schema, ...}` | Honoured by OpenAI/Mistral only. |
+| `model` | string, 1-256 | Resolved via exact match then aliases. |
+| `messages` | array, >= 1 | Roles `system`, `user`, `assistant`, `tool`. `content` string or parts (`text`, `image_url`); `assistant.tool_calls`; `tool.tool_call_id` required. |
+| `temperature` | 0-2 | `0` + `seed` makes the request cacheable. |
+| `top_p` | 0-1 | |
+| `n` | 1-128 | Only OpenAI-style upstreams return multiple choices. |
+| `stream` | bool | SSE; see below. |
+| `stream_options.include_usage` | bool | Emit a final usage chunk (the gateway always collects usage internally). |
+| `stop` | string or up to 4 strings | |
+| `max_tokens`, `max_completion_tokens` | int >= 1 | Anthropic/Gemini default to the model's `max_output_tokens`, else 4096. |
+| `presence_penalty`, `frequency_penalty` | -2..2 | |
+| `logit_bias`, `user`, `seed` | | `seed` is also the cache opt-in flag. |
+| `tools`, `tool_choice` | function tools | `none                                                                                                                                               | auto               | required` or a named function. |
+| `response_format` | `{type: text              | json_object                                                                                                                                         | json_schema, ...}` | Honoured by OpenAI/Mistral only. |
 
 ```bash
 # Non-streaming
@@ -159,16 +159,16 @@ curl -s -X PATCH localhost:8080/admin/keys/$ID -H "Authorization: Bearer $ADMIN"
 
 ### Providers and models
 
-| Method + path                                      | Body                                                                                                                                                                             | Result                                                          |
+| Method + path | Body | Result |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------ | ------ | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `POST /admin/providers`                            | `name`, `baseUrl` (URL), `adapterType` (`openai                                                                                                                                  | anthropic                                                       | gemini | cohere | mistral`), `apiKey`, `weight?`>= 0,`priority?`>= 1,`isActive?`, `healthCheckUrl?`, `timeoutMs?` | `201` provider (no secret; `hasApiKey`) - reloads the registry |
-| `GET /admin/providers`, `GET /admin/providers/:id` |                                                                                                                                                                                  | provider(s)                                                     |
-| `PATCH /admin/providers/:id`                       | any of the above (+ `healthCheckUrl` nullable)                                                                                                                                   | provider - reloads the registry                                 |
-| `DELETE /admin/providers/:id`                      |                                                                                                                                                                                  | soft delete -> `{id, deleted:true}`                             |
-| `POST /admin/providers/:id/models`                 | `modelId`, `displayName?`, `contextWindow?`, `maxOutputTokens?`, `inputPricePer1k?`, `outputPricePer1k?`, `supportsStreaming?`, `supportsTools?`, `supportsVision?`, `isActive?` | `201` model row                                                 |
-| `GET /admin/providers/:id/models`                  |                                                                                                                                                                                  | `{data:[...]}`                                                  |
-| `DELETE /admin/providers/:id/models/:modelId`      |                                                                                                                                                                                  | hard delete -> `{modelId, deleted:true}`                        |
-| `GET /admin/providers/:id/health`                  |                                                                                                                                                                                  | health row (`status`, `latencyMs`, `errorMessage`, `checkedAt`) |
+| `POST /admin/providers` | `name`, `baseUrl` (URL), `adapterType` (`openai                                                                                                                                  | anthropic                                                       | gemini | cohere | mistral`), `apiKey`, `weight?`>= 0,`priority?`>= 1,`isActive?`, `healthCheckUrl?`, `timeoutMs?` | `201` provider (no secret; `hasApiKey`) - reloads the registry |
+| `GET /admin/providers`, `GET /admin/providers/:id` | | provider(s) |
+| `PATCH /admin/providers/:id` | any of the above (+ `healthCheckUrl` nullable) | provider - reloads the registry |
+| `DELETE /admin/providers/:id` | | soft delete -> `{id, deleted:true}` |
+| `POST /admin/providers/:id/models` | `modelId`, `displayName?`, `contextWindow?`, `maxOutputTokens?`, `inputPricePer1k?`, `outputPricePer1k?`, `supportsStreaming?`, `supportsTools?`, `supportsVision?`, `isActive?` | `201` model row |
+| `GET /admin/providers/:id/models` | | `{data:[...]}` |
+| `DELETE /admin/providers/:id/models/:modelId` | | hard delete -> `{modelId, deleted:true}` |
+| `GET /admin/providers/:id/health` | | health row (`status`, `latencyMs`, `errorMessage`, `checkedAt`) |
 
 ```bash
 curl -s -X POST localhost:8080/admin/providers -H "Authorization: Bearer $ADMIN" -H "Content-Type: application/json" \

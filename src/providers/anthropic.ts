@@ -70,10 +70,7 @@ interface AnthropicToolResultBlock {
   content: string;
 }
 type AnthropicContentBlock =
-  | AnthropicTextBlock
-  | AnthropicImageBlock
-  | AnthropicToolUseBlock
-  | AnthropicToolResultBlock;
+  AnthropicTextBlock | AnthropicImageBlock | AnthropicToolUseBlock | AnthropicToolResultBlock;
 
 interface AnthropicMessage {
   role: 'user' | 'assistant';
