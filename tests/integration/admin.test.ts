@@ -32,6 +32,30 @@ describe('admin API', () => {
     expect(res.statusCode).toBe(403);
   });
 
+  it('rejects limits beyond PostgreSQL integer range with 422 instead of a database 500', async () => {
+    const key = await stack.app.inject({
+      method: 'POST',
+      url: '/admin/keys',
+      headers: adminAuth(),
+      payload: { rpmLimit: 3_000_000_000 },
+    });
+    expect(key.statusCode).toBe(422);
+    expect(key.json().error.message).toContain('rpmLimit');
+    const provider = await stack.app.inject({
+      method: 'POST',
+      url: '/admin/providers',
+      headers: adminAuth(),
+      payload: {
+        name: 'overflow',
+        baseUrl: 'http://127.0.0.1:1',
+        adapterType: 'openai',
+        apiKey: 'k',
+        timeoutMs: 3_000_000_000,
+      },
+    });
+    expect(provider.statusCode).toBe(422);
+  });
+
   it('creates an API key and returns the raw key exactly once', async () => {
     const res = await stack.app.inject({
       method: 'POST',

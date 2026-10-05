@@ -87,6 +87,38 @@ describe('authentication', () => {
       .where(eq(apiKeys.keyHash, hashApiKey(raw)));
   });
 
+  it('stops honouring a cached key once it expires (regression: sliding cache TTL outlived expiry)', async () => {
+    const raw = 'gw-cccccccccccccccccccccccccccccccc';
+    const expiresAtMs = Date.now() + 5_000; // generous: CI/containers can be slow
+    await getDb()
+      .insert(apiKeys)
+      .values({
+        keyHash: hashApiKey(raw),
+        name: 'expiring',
+        expiresAt: new Date(expiresAtMs),
+      })
+      .onConflictDoUpdate({
+        target: apiKeys.keyHash,
+        set: { expiresAt: new Date(expiresAtMs) },
+      });
+    const call = (): Promise<{ statusCode: number }> =>
+      stack.app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: { authorization: `Bearer ${raw}` },
+        payload: body(),
+      });
+    expect((await call()).statusCode).toBe(200); // populates the Redis auth cache
+    expect((await call()).statusCode).toBe(200); // served from cache, TTL slides
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.max(0, expiresAtMs - Date.now()) + 300),
+    );
+    expect((await call()).statusCode).toBe(401); // cache entry still present, but expired
+    await getDb()
+      .delete(apiKeys)
+      .where(eq(apiKeys.keyHash, hashApiKey(raw)));
+  });
+
   it('rejects an inactive (soft-deleted) key with 401', async () => {
     const raw = 'gw-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
     await getDb()

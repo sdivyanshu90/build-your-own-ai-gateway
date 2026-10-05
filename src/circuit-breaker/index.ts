@@ -69,7 +69,7 @@ if state == 'OPEN' then
   local openedAt = tonumber(redis.call('GET', KEYS[2]) or '0')
   if (now - openedAt) >= timeout then
     redis.call('SET', KEYS[1], 'HALF_OPEN')
-    redis.call('SET', KEYS[3], 1)
+    redis.call('SET', KEYS[3], 1, 'PX', timeout)
     redis.call('SET', KEYS[4], 0)
     return {'HALF_OPEN', 1}
   end
@@ -79,6 +79,10 @@ if state == 'HALF_OPEN' then
   local probes = tonumber(redis.call('GET', KEYS[3]) or '0')
   if probes < maxProbes then
     redis.call('INCR', KEYS[3])
+    -- Probe slots are leased: if a probe never reports back (crashed replica,
+    -- dropped connection) the counter expires and a fresh probe is admitted,
+    -- so HALF_OPEN can never wedge permanently.
+    redis.call('PEXPIRE', KEYS[3], timeout)
     return {'HALF_OPEN', 1}
   end
   return {'HALF_OPEN', 0}
@@ -111,6 +115,21 @@ end
 return state
 `;
 
+// KEYS: state
+// KEYS: half_probes
+// Returns nothing. Gives back a HALF_OPEN probe slot for a request that ended
+// without a verdict on provider health (client error, client abort).
+const RELEASE_LUA = `
+local state = redis.call('GET', KEYS[1]) or 'CLOSED'
+if state == 'HALF_OPEN' then
+  local p = tonumber(redis.call('GET', KEYS[2]) or '0')
+  if p > 0 then
+    redis.call('DECR', KEYS[2])
+  end
+end
+return state
+`;
+
 // KEYS: state, failures, opened_at, half_probes, half_successes
 // ARGV: now_ms, failure_threshold, window_ms
 // Returns: new state
@@ -119,6 +138,11 @@ local state = redis.call('GET', KEYS[1]) or 'CLOSED'
 local now = tonumber(ARGV[1])
 local threshold = tonumber(ARGV[2])
 local window = tonumber(ARGV[3])
+if state == 'OPEN' then
+  -- A late failure from a request admitted before the breaker opened. Do not
+  -- restart the open timer, or in-flight stragglers would extend the outage.
+  return 'OPEN'
+end
 if state == 'HALF_OPEN' then
   redis.call('SET', KEYS[1], 'OPEN')
   redis.call('SET', KEYS[3], now)
@@ -153,6 +177,7 @@ export class CircuitBreaker {
   private readonly acquireScript: RedisScript<CircuitDecision>;
   private readonly successScript: RedisScript<string>;
   private readonly failureScript: RedisScript<string>;
+  private readonly releaseScript: RedisScript<string>;
 
   public constructor(
     private readonly redis: Redis,
@@ -167,6 +192,7 @@ export class CircuitBreaker {
     this.acquireScript = new RedisScript(redis, ACQUIRE_LUA, parseDecision);
     this.successScript = new RedisScript(redis, SUCCESS_LUA, parseReplyString);
     this.failureScript = new RedisScript(redis, FAILURE_LUA, parseReplyString);
+    this.releaseScript = new RedisScript(redis, RELEASE_LUA, parseReplyString);
   }
 
   private keys(providerId: string): {
@@ -218,6 +244,17 @@ export class CircuitBreaker {
       [nowMs, this.failureThreshold, this.windowMs],
     );
     return state as CircuitState;
+  }
+
+  /**
+   * Return the HALF_OPEN probe slot taken by {@link acquire} when the request
+   * ended without evidence about provider health (4xx client error, caller
+   * abort). Without this the slot leaks and the breaker rejects every request
+   * until the probe lease expires.
+   */
+  public async release(providerId: string): Promise<void> {
+    const k = this.keys(providerId);
+    await this.releaseScript.run([k.state, k.halfProbes], []);
   }
 
   /** Current state of a single provider's breaker (defaults to CLOSED). */

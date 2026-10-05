@@ -36,6 +36,9 @@ import { logger } from '../utils/logger.js';
 // the spec's file tree implies (the canonical definition lives in utils/errors).
 export { ProviderError } from '../utils/errors.js';
 
+/** Upstream statuses that indicate a gateway-side (credential/billing/config) problem. */
+const GATEWAY_SIDE_UPSTREAM_STATUSES: ReadonlySet<number> = new Set([401, 402, 403, 404]);
+
 /** Pricing and capability metadata for one model served by a provider. */
 export interface ProviderModelInfo {
   readonly modelId: string;
@@ -140,12 +143,26 @@ export abstract class BaseProvider {
     url: string,
     init: RequestInit,
     signal: AbortSignal,
+    options: { readonly streaming?: boolean } = {},
   ): Promise<Response> {
-    const timeoutSignal = AbortSignal.timeout(this.cfg.timeoutMs);
+    // Non-streaming: the timeout covers the whole exchange, body read included.
+    // Streaming: it bounds time-to-response-headers only and is disarmed once
+    // they arrive — a healthy generation may legitimately outlive timeoutMs,
+    // and a total-duration timer would cut it off mid-stream.
+    const timeoutController = new AbortController();
+    const timer = setTimeout(() => timeoutController.abort(), this.cfg.timeoutMs);
+    const timeoutSignal = timeoutController.signal;
     const combined = AbortSignal.any([signal, timeoutSignal]);
+    timer.unref(); // never keep the process alive for a pending timeout
+    const disarm = (): void => clearTimeout(timer);
     try {
-      return await fetch(url, { ...init, signal: combined });
+      const response = await fetch(url, { ...init, signal: combined });
+      if (options.streaming === true) {
+        disarm();
+      }
+      return response;
     } catch (error) {
+      disarm();
       if (timeoutSignal.aborted) {
         throw new UpstreamTimeoutError(this.cfg.id, { cause: error });
       }
@@ -162,13 +179,25 @@ export abstract class BaseProvider {
 
   /**
    * Map a non-2xx upstream response to a gateway error. 408 becomes a timeout;
-   * 5xx and 429 are retryable (failover); other 4xx propagate as client errors.
+   * 5xx and 429 are retryable (failover); 401/402/403/404 are gateway-side
+   * misconfiguration reported as retryable 502; other 4xx propagate as client errors.
    */
   protected mapHttpError(status: number, bodyText: string): ProviderError | UpstreamTimeoutError {
     if (status === 408) {
       return new UpstreamTimeoutError(this.cfg.id);
     }
     const detail = extractProviderMessage(bodyText);
+    // 401/402/403/404 from an upstream mean OUR credential, billing or model
+    // mapping is wrong - not that the caller's request is. Surfacing them as-is
+    // would show the client a bogus 401/404 and block failover to a healthy
+    // provider, so they are reported as retryable 502s (breaker still counts them).
+    if (GATEWAY_SIDE_UPSTREAM_STATUSES.has(status)) {
+      return new ProviderError(
+        `Provider ${this.cfg.name} rejected the gateway's request with ${status}: ${detail}`,
+        502,
+        { providerId: this.cfg.id, retryable: true, context: { providerStatus: status } },
+      );
+    }
     return new ProviderError(`Provider ${this.cfg.name} returned ${status}: ${detail}`, status, {
       providerId: this.cfg.id,
       context: { providerStatus: status },

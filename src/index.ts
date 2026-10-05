@@ -40,16 +40,22 @@ async function initTracing(): Promise<() => Promise<void>> {
   }
   try {
     // Imported dynamically so the (heavy) OTel SDK is not loaded when disabled.
-    const { NodeSDK } = await import('@opentelemetry/sdk-node');
+    const { NodeSDK, tracing } = await import('@opentelemetry/sdk-node');
     const { getNodeAutoInstrumentations } =
       await import('@opentelemetry/auto-instrumentations-node');
     const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http');
-    const { Resource } = await import('@opentelemetry/resources');
-    const { SemanticResourceAttributes } = await import('@opentelemetry/semantic-conventions');
+    const { resourceFromAttributes } = await import('@opentelemetry/resources');
+    const { ATTR_SERVICE_NAME } = await import('@opentelemetry/semantic-conventions');
 
     const sdk = new NodeSDK({
-      resource: new Resource({
-        [SemanticResourceAttributes.SERVICE_NAME]: config.OTEL_SERVICE_NAME,
+      // Head-based sampling at OTEL_TRACES_SAMPLER_RATIO for new traces, honouring
+      // the caller's decision when a parent span exists. (The setting was
+      // previously validated but never applied, so every request was traced.)
+      sampler: new tracing.ParentBasedSampler({
+        root: new tracing.TraceIdRatioBasedSampler(config.OTEL_TRACES_SAMPLER_RATIO),
+      }),
+      resource: resourceFromAttributes({
+        [ATTR_SERVICE_NAME]: config.OTEL_SERVICE_NAME,
       }),
       traceExporter:
         config.OTEL_EXPORTER_OTLP_ENDPOINT !== undefined
@@ -112,6 +118,7 @@ function registerSignalHandlers(
       await withTimeout(app.close(), config.SHUTDOWN_TIMEOUT_MS, 'app.close');
       // 2. Stop background jobs.
       await healthMonitor.stop();
+      await getCostTracker().flush(); // let queued request-log inserts land
       // 3. Close shared connections in order.
       await closeRedis();
       await closeDatabase();

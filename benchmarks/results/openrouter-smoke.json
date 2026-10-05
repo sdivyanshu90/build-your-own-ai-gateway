@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "date": "2026-10-04T20:17:28.068Z",
+    "node": "v21.5.0",
+    "host": {
+      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+      "cpus": 8,
+      "totalMemMB": 5928
+    },
+    "autocannon": "8.0.0"
+  },
+  "model": "~deepseek/deepseek-v4-flash-latest",
+  "calls": [
+    {
+      "kind": "non-stream",
+      "status": 503,
+      "latencyMs": 4719,
+      "usage": null,
+      "finishReason": null,
+      "gotContent": false,
+      "gatewayHeaders": {
+        "x-gateway-provider": null,
+        "x-gateway-model": null,
+        "x-gateway-cache-status": null,
+        "x-gateway-failover-count": null,
+        "x-gateway-latency-ms": null
+      },
+      "errorSnippet": "{\"error\":{\"message\":\"All upstream providers are currently unavailable. Please retry shortly.\",\"type\":\"server_error\",\"param\":null,\"code\":\"all_providers_failed\"}}"
+    },
+    {
+      "kind": "stream",
+      "skipped": "deliberately not made: the owner capped real OpenRouter spend at ONE call; streaming is exercised against a real local model instead"
+    }
+  ],
+  "note": "No generated text or credentials are recorded. Total real calls made: 1"
+}

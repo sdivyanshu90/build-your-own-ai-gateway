@@ -125,6 +125,9 @@ export const redisKeys = {
     `${prefix}rl:rpm:${apiKeyId}`,
   rateLimitTpm: (apiKeyId: string, prefix: string = defaultPrefix()): string =>
     `${prefix}rl:tpm:${apiKeyId}`,
+  /** Running token total for the TPM window (see the rate-limiter Lua script). */
+  rateLimitTpmSum: (apiKeyId: string, prefix: string = defaultPrefix()): string =>
+    `${prefix}rl:tpmsum:${apiKeyId}`,
   rateLimitBurst: (apiKeyId: string, prefix: string = defaultPrefix()): string =>
     `${prefix}rl:burst:${apiKeyId}`,
 

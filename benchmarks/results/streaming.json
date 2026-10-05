@@ -1,0 +1,236 @@
+{
+  "meta": {
+    "date": "2026-10-04T17:03:08.008Z",
+    "node": "v21.5.0",
+    "host": {
+      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+      "cpus": 8,
+      "totalMemMB": 5928
+    },
+    "autocannon": "8.0.0"
+  },
+  "mockLatencyMs": 20,
+  "streamTokens": 20,
+  "streamIntervalMs": 5,
+  "n": 400,
+  "runs": {
+    "directOpenAI": {
+      "n": 400,
+      "concurrency": 16,
+      "failures": 0,
+      "ttfbMs": {
+        "n": 400,
+        "mean": 23.75,
+        "p50": 21.64,
+        "p90": 23.82,
+        "p95": 28.82,
+        "p99": 71.3,
+        "max": 71.71
+      },
+      "ttftMs": {
+        "n": 400,
+        "mean": 23.81,
+        "p50": 21.66,
+        "p90": 23.84,
+        "p95": 28.83,
+        "p99": 71.31,
+        "max": 71.73
+      },
+      "totalMs": {
+        "n": 400,
+        "mean": 132.14,
+        "p50": 131.24,
+        "p90": 136.36,
+        "p95": 139.83,
+        "p99": 155.42,
+        "max": 156.44
+      }
+    },
+    "gatewayOpenAI": {
+      "n": 400,
+      "concurrency": 16,
+      "failures": 0,
+      "ttfbMs": {
+        "n": 400,
+        "mean": 275.63,
+        "p50": 255.42,
+        "p90": 411.48,
+        "p95": 440.88,
+        "p99": 461.16,
+        "max": 463.25
+      },
+      "ttftMs": {
+        "n": 400,
+        "mean": 275.65,
+        "p50": 255.42,
+        "p90": 411.5,
+        "p95": 440.89,
+        "p99": 461.16,
+        "max": 463.27
+      },
+      "totalMs": {
+        "n": 400,
+        "mean": 443.67,
+        "p50": 437.88,
+        "p90": 537.99,
+        "p95": 590.83,
+        "p99": 610.3,
+        "max": 612.16
+      }
+    },
+    "directAnthropic": {
+      "n": 400,
+      "concurrency": 16,
+      "failures": 400,
+      "ttfbMs": {
+        "n": 0,
+        "mean": null,
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "ttftMs": {
+        "n": 0,
+        "mean": null,
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "totalMs": {
+        "n": 0,
+        "mean": null,
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    "gatewayAnthropic": {
+      "n": 400,
+      "concurrency": 16,
+      "failures": 0,
+      "ttfbMs": {
+        "n": 400,
+        "mean": 287.6,
+        "p50": 291.33,
+        "p90": 368.43,
+        "p95": 383.96,
+        "p99": 657.15,
+        "max": 669.43
+      },
+      "ttftMs": {
+        "n": 400,
+        "mean": 287.62,
+        "p50": 291.34,
+        "p90": 368.45,
+        "p95": 383.99,
+        "p99": 657.16,
+        "max": 669.45
+      },
+      "totalMs": {
+        "n": 400,
+        "mean": 444.24,
+        "p50": 417.41,
+        "p90": 529.08,
+        "p95": 776.45,
+        "p99": 808.94,
+        "max": 812.18
+      }
+    },
+    "directOpenAI_c1": {
+      "n": 150,
+      "concurrency": 1,
+      "failures": 0,
+      "ttfbMs": {
+        "n": 150,
+        "mean": 22.06,
+        "p50": 21.96,
+        "p90": 22.66,
+        "p95": 22.81,
+        "p99": 23.48,
+        "max": 25.27
+      },
+      "ttftMs": {
+        "n": 150,
+        "mean": 22.08,
+        "p50": 21.98,
+        "p90": 22.69,
+        "p95": 22.83,
+        "p99": 23.51,
+        "max": 25.29
+      },
+      "totalMs": {
+        "n": 150,
+        "mean": 129.01,
+        "p50": 129.18,
+        "p90": 131.61,
+        "p95": 132.2,
+        "p99": 132.89,
+        "max": 135.65
+      }
+    },
+    "gatewayOpenAI_c1": {
+      "n": 150,
+      "concurrency": 1,
+      "failures": 0,
+      "ttfbMs": {
+        "n": 150,
+        "mean": 37.59,
+        "p50": 36.19,
+        "p90": 42.35,
+        "p95": 46.3,
+        "p99": 52.67,
+        "max": 53.22
+      },
+      "ttftMs": {
+        "n": 150,
+        "mean": 37.61,
+        "p50": 36.21,
+        "p90": 42.37,
+        "p95": 46.32,
+        "p99": 52.7,
+        "max": 53.24
+      },
+      "totalMs": {
+        "n": 150,
+        "mean": 151,
+        "p50": 147.73,
+        "p90": 154.25,
+        "p95": 159.23,
+        "p99": 173.03,
+        "max": 522.32
+      }
+    }
+  },
+  "overheadP50Ms": {
+    "openai_c16": {
+      "ttfb": 233.78,
+      "ttft": 233.76,
+      "total": 306.64
+    },
+    "anthropic_c16": {
+      "ttfb": 291.33,
+      "ttft": 291.34,
+      "total": 417.41
+    },
+    "openai_c1": {
+      "ttfb": 14.23,
+      "ttft": 14.23,
+      "total": 18.55
+    }
+  },
+  "metricsBefore": [
+    "gateway_http_requests_total{method=\"POST\",route=\"/v1/chat/completions\",status_code=\"200\",service=\"ai-gateway\"} 2706",
+    "gateway_in_flight_requests{service=\"ai-gateway\"} 68"
+  ],
+  "metricsAfter": [
+    "gateway_http_requests_total{method=\"POST\",route=\"/v1/chat/completions\",status_code=\"200\",service=\"ai-gateway\"} 3656",
+    "gateway_in_flight_requests{service=\"ai-gateway\"} 68"
+  ],
+  "streamsSent": 1900
+}

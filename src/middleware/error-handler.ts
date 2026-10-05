@@ -15,6 +15,7 @@ import {
   NotFoundError,
   PayloadTooLargeError,
   RateLimitError,
+  ServiceUnavailableError,
   ValidationError,
 } from '../utils/errors.js';
 
@@ -26,6 +27,11 @@ export function normalizeError(error: unknown): GatewayError {
   if (isFastifyError(error)) {
     if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
       return new PayloadTooLargeError();
+    }
+    // Load shedding from @fastify/under-pressure. Without this it fell through to
+    // GatewayError.from() and was reported as a 500 internal_error.
+    if (error.code === 'FST_UNDER_PRESSURE') {
+      return new ServiceUnavailableError(error.message, { cause: error });
     }
     if (error.validation !== undefined && error.validation !== null) {
       return new ValidationError('Request failed schema validation.', {

@@ -1,6 +1,9 @@
 // Baseline load: 50 constant VUs for 5 minutes against a fast (mock) upstream.
 // Thresholds assert the gateway's own overhead budget, so point BASE_URL at a
-// gateway backed by a stub provider — not a live LLM whose latency dominates.
+// gateway backed by a stub provider — not a live LLM whose latency dominates
+// (benchmarks/mock-upstream.mjs is one). The API key needs limits above the load
+// (50 VUs at ~1 req/s = ~3000 RPM; the seeded dev-key allows 600 RPM and would answer
+// 429): create one with `POST /admin/keys {"rpmLimit": 1000000, "tpmLimit": 1000000000}`.
 //
 //   k6 run -e BASE_URL=http://localhost:8080 -e API_KEY=gw-... tests/load/k6-baseline.js
 import http from 'k6/http';
@@ -12,7 +15,8 @@ const API_KEY = __ENV.API_KEY || 'gw-00000000000000000000000000000000';
 const MODEL = __ENV.MODEL || 'gpt-4o';
 
 const errorRate = new Rate('errors');
-const gatewayLatency = new Trend('gateway_overhead_ms', true);
+// X-Gateway-Latency-Ms is the UPSTREAM call latency, not the gateway's own overhead.
+const gatewayLatency = new Trend('upstream_latency_ms', true);
 
 export const options = {
   scenarios: {

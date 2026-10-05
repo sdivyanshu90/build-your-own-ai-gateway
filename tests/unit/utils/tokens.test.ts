@@ -73,3 +73,12 @@ describe('tokens: embeddings', () => {
     expect(countEmbeddingTokens([1, 2, 3], 'text-embedding-3-small')).toBe(3);
   });
 });
+
+describe('tokens: special-token text in prompts', () => {
+  it('counts literal special tokens as plain text instead of throwing (regression: 500 on <|endoftext|>)', () => {
+    const msgs = [{ role: 'user' as const, content: 'hello <|endoftext|> <|im_start|> world' }];
+    expect(() => countChatTokens(msgs, 'gpt-4o')).not.toThrow();
+    expect(countChatTokens(msgs, 'gpt-4o')).toBeGreaterThan(5);
+    expect(() => countEmbeddingTokens('<|endoftext|>', 'text-embedding-3-small')).not.toThrow();
+  });
+});

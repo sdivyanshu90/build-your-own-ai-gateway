@@ -21,34 +21,37 @@ import { ADAPTER_TYPES } from '../../utils/constants.js';
 import { encrypt } from '../../utils/crypto.js';
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
 
+/** PostgreSQL `integer` ceiling: larger values would surface as a 500 from the database. */
+const INT32_MAX = 2_147_483_647;
+
 const createProviderSchema = z.object({
   name: z.string().min(1).max(128),
   baseUrl: z.string().url(),
   adapterType: z.enum(ADAPTER_TYPES),
   apiKey: z.string().min(1),
-  weight: z.number().int().min(0).optional(),
-  priority: z.number().int().min(1).optional(),
+  weight: z.number().int().min(0).max(INT32_MAX).optional(),
+  priority: z.number().int().min(1).max(INT32_MAX).optional(),
   isActive: z.boolean().optional(),
   healthCheckUrl: z.string().url().optional(),
-  timeoutMs: z.number().int().min(1).optional(),
+  timeoutMs: z.number().int().min(1).max(INT32_MAX).optional(),
 });
 
 const patchProviderSchema = z.object({
   name: z.string().min(1).max(128).optional(),
   baseUrl: z.string().url().optional(),
   apiKey: z.string().min(1).optional(),
-  weight: z.number().int().min(0).optional(),
-  priority: z.number().int().min(1).optional(),
+  weight: z.number().int().min(0).max(INT32_MAX).optional(),
+  priority: z.number().int().min(1).max(INT32_MAX).optional(),
   isActive: z.boolean().optional(),
   healthCheckUrl: z.string().url().nullable().optional(),
-  timeoutMs: z.number().int().min(1).optional(),
+  timeoutMs: z.number().int().min(1).max(INT32_MAX).optional(),
 });
 
 const modelSchema = z.object({
   modelId: z.string().min(1),
   displayName: z.string().optional(),
-  contextWindow: z.number().int().min(1).optional(),
-  maxOutputTokens: z.number().int().min(1).optional(),
+  contextWindow: z.number().int().min(1).max(INT32_MAX).optional(),
+  maxOutputTokens: z.number().int().min(1).max(INT32_MAX).optional(),
   inputPricePer1k: z.number().nonnegative().optional(),
   outputPricePer1k: z.number().nonnegative().optional(),
   supportsStreaming: z.boolean().optional(),

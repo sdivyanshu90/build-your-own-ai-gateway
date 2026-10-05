@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CryptoError,
   decrypt,
+  decryptWithKeys,
   encrypt,
   generateApiKey,
   generateMasterKey,
@@ -89,5 +90,26 @@ describe('crypto: secureRandomInt', () => {
 
   it('throws on a non-positive bound', () => {
     expect(() => secureRandomInt(0)).toThrow(CryptoError);
+  });
+});
+
+describe('crypto: key rotation (decryptWithKeys)', () => {
+  const oldKey = Buffer.from(generateMasterKey(), 'hex');
+  const newKey = Buffer.from(generateMasterKey(), 'hex');
+
+  it('decrypts with the first key that authenticates', () => {
+    const sealedOld = encrypt('sk-rotating', oldKey);
+    const sealedNew = encrypt('sk-rotating', newKey);
+    expect(decryptWithKeys(sealedOld, [newKey, oldKey])).toBe('sk-rotating');
+    expect(decryptWithKeys(sealedNew, [newKey, oldKey])).toBe('sk-rotating');
+  });
+
+  it('fails when no key authenticates', () => {
+    const other = Buffer.from(generateMasterKey(), 'hex');
+    expect(() => decryptWithKeys(encrypt('x', other), [newKey, oldKey])).toThrow(CryptoError);
+  });
+
+  it('does not try other keys for a malformed envelope', () => {
+    expect(() => decryptWithKeys('not-an-envelope', [newKey, oldKey])).toThrow(/Malformed/);
   });
 });

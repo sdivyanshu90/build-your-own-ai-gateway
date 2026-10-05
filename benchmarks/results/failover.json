@@ -1,0 +1,191 @@
+{
+  "meta": {
+    "date": "2026-10-04T20:25:45.104Z",
+    "node": "v21.5.0",
+    "host": {
+      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+      "cpus": 8,
+      "totalMemMB": 5928
+    },
+    "autocannon": "8.0.0"
+  },
+  "scenarios": {
+    "healthy_baseline": {
+      "requests": 600,
+      "concurrency": 8,
+      "statusCodes": {
+        "200": 600
+      },
+      "successRate": 1,
+      "failoverCountHistogram": {
+        "0": 600
+      },
+      "latencyMsOk": {
+        "n": 600,
+        "mean": 662.88,
+        "p50": 183.77,
+        "p90": 718.99,
+        "p95": 1864.46,
+        "p99": 23115.95,
+        "max": 24616.83
+      },
+      "upstreamA": {
+        "requests": 300,
+        "errors": 0,
+        "hangs": 0
+      },
+      "upstreamB": {
+        "requests": 300
+      }
+    },
+    "primary_503_always": {
+      "requests": 600,
+      "concurrency": 8,
+      "statusCodes": {
+        "200": 586,
+        "500": 14
+      },
+      "successRate": 0.9766666666666667,
+      "failoverCountHistogram": {
+        "0": 576,
+        "1": 10
+      },
+      "latencyMsOk": {
+        "n": 586,
+        "mean": 594.06,
+        "p50": 252.31,
+        "p90": 642.19,
+        "p95": 876.66,
+        "p99": 22916.26,
+        "max": 24617.24
+      },
+      "upstreamA": {
+        "requests": 10,
+        "errors": 10,
+        "hangs": 0
+      },
+      "upstreamB": {
+        "requests": 586
+      }
+    },
+    "primary_429_always": {
+      "requests": 600,
+      "concurrency": 8,
+      "statusCodes": {
+        "200": 596,
+        "503": 4
+      },
+      "successRate": 0.9933333333333333,
+      "failoverCountHistogram": {
+        "0": 585,
+        "1": 11
+      },
+      "latencyMsOk": {
+        "n": 596,
+        "mean": 568.1,
+        "p50": 259.68,
+        "p90": 720.39,
+        "p95": 1012.81,
+        "p99": 3197.42,
+        "max": 30902.6
+      },
+      "upstreamA": {
+        "requests": 12,
+        "errors": 12,
+        "hangs": 0
+      },
+      "upstreamB": {
+        "requests": 600
+      }
+    },
+    "primary_50pct_503": {
+      "requests": 600,
+      "concurrency": 8,
+      "statusCodes": {
+        "200": 599,
+        "500": 1
+      },
+      "successRate": 0.9983333333333333,
+      "failoverCountHistogram": {
+        "0": 569,
+        "1": 30
+      },
+      "latencyMsOk": {
+        "n": 599,
+        "mean": 639.77,
+        "p50": 231.59,
+        "p90": 769.12,
+        "p95": 2261.73,
+        "p99": 19666.11,
+        "max": 19806.6
+      },
+      "upstreamA": {
+        "requests": 55,
+        "errors": 27,
+        "hangs": 0
+      },
+      "upstreamB": {
+        "requests": 574
+      }
+    },
+    "primary_connection_reset": {
+      "requests": 600,
+      "concurrency": 8,
+      "statusCodes": {
+        "200": 600
+      },
+      "successRate": 1,
+      "failoverCountHistogram": {
+        "0": 590,
+        "1": 10
+      },
+      "latencyMsOk": {
+        "n": 600,
+        "mean": 729.99,
+        "p50": 250.92,
+        "p90": 494.23,
+        "p95": 652.53,
+        "p99": 33116.88,
+        "max": 33269.13
+      },
+      "upstreamA": {
+        "requests": 10,
+        "errors": 10,
+        "hangs": 0
+      },
+      "upstreamB": {
+        "requests": 600
+      }
+    },
+    "primary_hangs_timeout_1500ms": {
+      "requests": 120,
+      "concurrency": 8,
+      "statusCodes": {
+        "200": 110,
+        "500": 10
+      },
+      "successRate": 0.9166666666666666,
+      "failoverCountHistogram": {
+        "0": 101,
+        "1": 9
+      },
+      "latencyMsOk": {
+        "n": 110,
+        "mean": 2336.89,
+        "p50": 189.97,
+        "p90": 1128.99,
+        "p95": 32433.94,
+        "p99": 32838.77,
+        "max": 32933.94
+      },
+      "upstreamA": {
+        "requests": 9,
+        "errors": 0,
+        "hangs": 9
+      },
+      "upstreamB": {
+        "requests": 110
+      }
+    }
+  }
+}

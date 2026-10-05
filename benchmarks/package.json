@@ -1,0 +1,9 @@
+{
+  "name": "ai-gateway-benchmarks",
+  "private": true,
+  "type": "module",
+  "description": "Load/latency harness for the AI gateway. Separate from the main package so autocannon stays out of the gateway's dependency tree.",
+  "dependencies": {
+    "autocannon": "^8.0.0"
+  }
+}

@@ -43,12 +43,12 @@ down → see Redis/DB runbooks. If all providers for a model are down → regist
 
 **Symptoms:** `/ready` reports `redis:false`; cache hit rate collapses; warn logs "Redis client error".
 
-**Degradation (already automatic):** auth falls back to the DB; the cache treats every request
-as a miss; the rate limiter and circuit breaker are best-effort; the LB degrades to random. The
-gateway keeps serving — at higher provider load and cost.
+**Degradation:** auth falls back to the DB; the cache treats every request as a miss; the circuit breaker fails open; the LB degrades to random. **The rate limiter does not degrade**: with Redis down
+some requests fail with 500 and others hang (measured: 3 x 500 and 5 requests unanswered after 20 s, out of 8) until Redis returns (~3 s after it is back). If the outage will last, set
+`RATE_LIMIT_ENABLED=false` and roll the deployment to restore service without limits.
 
 **Mitigation:** restore/scale Redis. For `RedisMemoryHigh`, confirm `maxmemory-policy
-allkeys-lru` and raise `maxmemory` or scale to Cluster. Cache/limiter keys carry TTLs, so memory
+volatile-lru` and raise `maxmemory` or scale to Cluster. Cache/limiter keys carry TTLs, so memory
 self-bounds once traffic normalises.
 
 **Recovery:** once `/ready` is green, hit rates and limiter accuracy recover automatically (no
@@ -126,7 +126,7 @@ shift weight toward cheaper providers; restore cache health. Investigate any ano
 
 **Symptoms:** a provider's circuit stays OPEN though the provider is healthy again.
 
-**Diagnosis:** probes keep failing (still flaky), or Redis state is stale.
+**Diagnosis:** probes keep failing (still flaky), no request is asking (OPEN -> HALF_OPEN is lazy; with `LATENCY_BASED` a demoted provider may receive none), or Redis state is stale. (A permanently wedged HALF_OPEN from an abandoned probe was a bug, now fixed: probe slots expire.)
 
 **Mitigation:** `POST /admin/circuit-breakers/:id/reset` to force CLOSED; verify with a test
 request. If it reopens immediately, the provider is still failing — treat as a provider outage.

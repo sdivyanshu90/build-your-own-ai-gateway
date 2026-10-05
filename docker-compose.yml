@@ -36,7 +36,7 @@ services:
         '--maxmemory',
         '256mb',
         '--maxmemory-policy',
-        'allkeys-lru',
+        'volatile-lru',
       ]
     ports:
       - '6379:6379'
@@ -108,6 +108,8 @@ services:
       REDIS_URL: redis://redis:6379
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
       ADMIN_API_KEY: ${ADMIN_API_KEY:-dev-admin-token-change-me}
+      # Forwarded so the README's "set OPENAI_API_KEY for real upstream calls" works.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-dev-placeholder-key}
     depends_on:
       migrate:
         condition: service_completed_successfully

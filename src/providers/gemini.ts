@@ -15,6 +15,8 @@
  *   • Streaming uses `:streamGenerateContent?alt=sse`, whose frames are partial
  *     GenerateContentResponses normalised to OpenAI chunks.
  */
+import { randomUUID } from 'node:crypto';
+
 import {
   type ChatCompletionChunk,
   type ChatCompletionRequest,
@@ -115,6 +117,7 @@ export class GeminiProvider extends BaseProvider {
       url,
       { method: 'POST', headers: this.headers(), body: JSON.stringify(body) },
       signal,
+      { streaming: true },
     );
     await this.ensureOk(response);
     if (response.body === null) {
@@ -154,6 +157,17 @@ export class GeminiProvider extends BaseProvider {
   private translateRequest(request: ChatCompletionRequest): GeminiRequestBody {
     const contents: GeminiContent[] = [];
     const systemParts: GeminiPart[] = [];
+    // Gemini identifies a functionResponse by function NAME, while OpenAI tool
+    // messages carry only a tool_call_id. Recover the name from the assistant
+    // turn that issued the call.
+    const toolNameById = new Map<string, string>();
+    for (const m of request.messages) {
+      if (m.role === 'assistant') {
+        for (const call of m.tool_calls ?? []) {
+          toolNameById.set(call.id, call.function.name);
+        }
+      }
+    }
 
     const push = (role: 'user' | 'model', parts: GeminiPart[]): void => {
       if (parts.length === 0) {
@@ -197,7 +211,7 @@ export class GeminiProvider extends BaseProvider {
           push('user', [
             {
               functionResponse: {
-                name: message.tool_call_id,
+                name: toolNameById.get(message.tool_call_id) ?? message.tool_call_id,
                 response: { content: flattenText(message.content) },
               },
             },
@@ -380,7 +394,7 @@ export class GeminiProvider extends BaseProvider {
           const name = typeof fc['name'] === 'string' ? fc['name'] : `tool_${index}`;
           yield makeToolCallChunk(id, created, model, {
             index,
-            id: name,
+            id: newToolCallId(),
             type: 'function',
             function: { name, arguments: JSON.stringify(fc['args'] ?? {}) },
           });
@@ -406,6 +420,11 @@ export class GeminiProvider extends BaseProvider {
 }
 
 // ── Pure helpers ─────────────────────────────────────────────────────────────
+
+/** Gemini has no tool-call ids; mint unique ones (two calls to one function must differ). */
+function newToolCallId(): string {
+  return `call_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
+}
 
 function mapFinishReason(
   reason: string | null,
@@ -466,7 +485,7 @@ function extractParts(content: unknown): { text: string; toolCalls: ToolCall[] }
       const fc = part['functionCall'];
       const name = typeof fc['name'] === 'string' ? fc['name'] : `tool_${index}`;
       toolCalls.push({
-        id: name,
+        id: newToolCallId(),
         type: 'function',
         function: { name, arguments: JSON.stringify(fc['args'] ?? {}) },
       });
@@ -485,7 +504,10 @@ function readUsage(usageMetadata: unknown): {
     return { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
   }
   const prompt = readNumber(usageMetadata['promptTokenCount']) ?? 0;
-  const completion = readNumber(usageMetadata['candidatesTokenCount']) ?? 0;
+  // Thinking models bill reasoning tokens as output but report them separately.
+  const completion =
+    (readNumber(usageMetadata['candidatesTokenCount']) ?? 0) +
+    (readNumber(usageMetadata['thoughtsTokenCount']) ?? 0);
   const total = readNumber(usageMetadata['totalTokenCount']) ?? prompt + completion;
   return { prompt_tokens: prompt, completion_tokens: completion, total_tokens: total };
 }

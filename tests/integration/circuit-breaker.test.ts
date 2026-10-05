@@ -77,6 +77,47 @@ describe('distributed circuit breaker (real Redis)', () => {
     expect(await breaker.recordFailure(providerId, openedAt + 1_002)).toBe('OPEN');
   });
 
+  it('release() hands back the HALF_OPEN probe slot (regression: leaked probe wedged the breaker)', async () => {
+    const openedAt = 4_000_000;
+    for (let i = 0; i < 3; i += 1) {
+      await breaker.recordFailure(providerId, openedAt);
+    }
+    expect((await breaker.acquire(providerId, openedAt + 1_001)).allowed).toBe(true); // probe taken
+    expect((await breaker.acquire(providerId, openedAt + 1_002)).allowed).toBe(false); // slot busy
+    // The probe ended with a 4xx: no verdict on health, so the slot is returned.
+    await breaker.release(providerId);
+    expect((await breaker.acquire(providerId, openedAt + 1_003)).allowed).toBe(true);
+  });
+
+  it('release() is a no-op outside HALF_OPEN', async () => {
+    await breaker.release(providerId);
+    expect((await breaker.acquire(providerId)).state).toBe('CLOSED');
+  });
+
+  it('a late failure while OPEN does not restart the open timer', async () => {
+    const openedAt = 5_000_000;
+    for (let i = 0; i < 3; i += 1) {
+      await breaker.recordFailure(providerId, openedAt);
+    }
+    // A request admitted before the breaker opened fails 900ms later.
+    expect(await breaker.recordFailure(providerId, openedAt + 900)).toBe('OPEN');
+    const status = await breaker.getState(providerId);
+    expect(status.openedAt).toBe(openedAt);
+    // So the original timeout (1000ms) still governs the HALF_OPEN transition.
+    expect((await breaker.acquire(providerId, openedAt + 1_001)).state).toBe('HALF_OPEN');
+  });
+
+  it('an abandoned probe lease expires so HALF_OPEN cannot wedge', async () => {
+    const openedAt = 6_000_000;
+    for (let i = 0; i < 3; i += 1) {
+      await breaker.recordFailure(providerId, openedAt);
+    }
+    expect((await breaker.acquire(providerId, openedAt + 1_001)).allowed).toBe(true); // never reports back
+    expect((await breaker.acquire(providerId, openedAt + 1_002)).allowed).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 1_150)); // lease == timeoutMs (1000ms)
+    expect((await breaker.acquire(providerId, openedAt + 1_003)).allowed).toBe(true);
+  });
+
   it('manual reset returns to CLOSED', async () => {
     for (let i = 0; i < 3; i += 1) {
       await breaker.recordFailure(providerId);

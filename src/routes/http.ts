@@ -23,6 +23,13 @@ export function clientAbortSignal(reply: FastifyReply): AbortSignal {
       controller.abort();
     }
   });
+  // The listener above only sees FUTURE close events. This signal is created after
+  // authentication and rate limiting, so a client that already disconnected while
+  // queued would otherwise never abort and the gateway would still call (and pay)
+  // the upstream for a request nobody is waiting for.
+  if (reply.raw.destroyed && !reply.raw.writableFinished) {
+    controller.abort();
+  }
   return controller.signal;
 }
 

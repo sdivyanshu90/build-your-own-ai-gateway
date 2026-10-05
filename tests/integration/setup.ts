@@ -35,12 +35,37 @@ async function applyMigrations(databaseUrl: string): Promise<void> {
 }
 
 export async function setup(): Promise<void> {
+  // Optional: reuse pre-started dependencies instead of testcontainers (faster
+  // local iteration; see benchmarks/docker-compose.deps.yml). The database is
+  // reset to a clean schema first.
+  const externalDb = process.env['TEST_DATABASE_URL'];
+  const externalRedis = process.env['TEST_REDIS_URL'];
+  if (externalDb !== undefined && externalRedis !== undefined) {
+    const admin = new pg.Client({ connectionString: externalDb });
+    await admin.connect();
+    await admin.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+    await admin.end();
+    await applyMigrations(externalDb);
+    process.env['DATABASE_URL'] = externalDb;
+    process.env['REDIS_URL'] = externalRedis;
+    process.env['NODE_ENV'] = 'test';
+    process.env['ENCRYPTION_KEY'] ??= '0'.repeat(64);
+    process.env['ADMIN_API_KEY'] ??= 'test-admin-key-0123456789';
+    process.env['LOG_LEVEL'] ??= 'fatal';
+    process.env['HEALTH_MONITOR_ENABLED'] = 'false';
+    process.env['REGISTRY_CACHE_TTL_SECONDS'] = '1';
+    return;
+  }
+
   postgres = await new PostgreSqlContainer('postgres:16-alpine')
     .withDatabase('ai_gateway')
     .withUsername('gateway')
     .withPassword('gateway')
+    .withResourcesQuota({ memory: 0.5, cpu: 1 })
     .start();
-  redis = await new RedisContainer('redis:7-alpine').start();
+  redis = await new RedisContainer('redis:7-alpine')
+    .withResourcesQuota({ memory: 0.25, cpu: 1 })
+    .start();
 
   const databaseUrl = postgres.getConnectionUri();
   const redisUrl = redis.getConnectionUrl();

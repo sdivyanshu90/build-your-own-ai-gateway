@@ -1,0 +1,123 @@
+{
+  "meta": {
+    "date": "2026-10-04T17:03:46.860Z",
+    "node": "v21.5.0",
+    "host": {
+      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+      "cpus": 8,
+      "totalMemMB": 5928
+    },
+    "autocannon": "8.0.0"
+  },
+  "mockLatencyMs": 20,
+  "steps": [
+    {
+      "connections": 8,
+      "durationS": 15,
+      "rps": 61,
+      "requests": 922,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 129.13,
+        "p50": 128,
+        "p90": 155,
+        "p97_5": 174,
+        "p99": 183,
+        "p99_9": 214,
+        "max": 214
+      },
+      "loadgenCpuPct": 3,
+      "gatewayContainer": {
+        "samples": 6,
+        "maxMemMiB": 84.5,
+        "avgCpuPct": 32.1,
+        "maxCpuPct": 37.53
+      },
+      "mockCpuPct": 3,
+      "redisCommandStats": {
+        "evalsha": {
+          "calls": 4727,
+          "usecPerCall": 2856.05
+        },
+        "incrbyfloat": {
+          "calls": 1178,
+          "usecPerCall": 4.55
+        },
+        "get": {
+          "calls": 4727,
+          "usecPerCall": 1.88
+        },
+        "expire": {
+          "calls": 2361,
+          "usecPerCall": 4.9
+        },
+        "set": {
+          "calls": 1178,
+          "usecPerCall": 2.89
+        },
+        "mget": {
+          "calls": 1183,
+          "usecPerCall": 2.16
+        }
+      },
+      "pgCommitsDuringStep": 1164
+    },
+    {
+      "connections": 32,
+      "durationS": 15,
+      "rps": 35,
+      "requests": 522,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 865.75,
+        "p50": 770,
+        "p90": 1205,
+        "p97_5": 1730,
+        "p99": 1735,
+        "p99_9": 1875,
+        "max": 1875
+      },
+      "loadgenCpuPct": 2,
+      "gatewayContainer": {
+        "samples": 6,
+        "maxMemMiB": 86.5,
+        "avgCpuPct": 9.3,
+        "maxCpuPct": 14.26
+      },
+      "mockCpuPct": 1,
+      "redisCommandStats": {
+        "evalsha": {
+          "calls": 2851,
+          "usecPerCall": 6065.5
+        },
+        "incrbyfloat": {
+          "calls": 707,
+          "usecPerCall": 3.87
+        },
+        "get": {
+          "calls": 2851,
+          "usecPerCall": 3.43
+        },
+        "expire": {
+          "calls": 1422,
+          "usecPerCall": 2.32
+        },
+        "set": {
+          "calls": 707,
+          "usecPerCall": 2.11
+        },
+        "mget": {
+          "calls": 715,
+          "usecPerCall": 1.45
+        }
+      },
+      "pgCommitsDuringStep": 755
+    }
+  ],
+  "stoppedBecause": "saturated: rps gain <5% at c=32",
+  "maxRps": 61
+}

@@ -8,7 +8,8 @@
  *     non-deterministic; streaming has no single body to store; tool calls
  *     depend on live state; and a seed signals the caller wants reproducibility.
  *   • The cache key is SHA-256 over a CANONICAL serialisation of
- *     (model, messages, top_p, max_tokens) — object keys sorted so logically
+ *     (model, messages, top_p, max_tokens, seed, stop, n, penalties, logit_bias,
+ *     response_format) — object keys sorted so logically
  *     identical requests collide deterministically while message ORDER (which is
  *     semantically significant) is preserved.
  *   • The cache must NEVER fail a request. Every Redis interaction is wrapped so
@@ -57,11 +58,21 @@ export class SemanticCache {
 
   /** Deterministic cache key for a request. Public for tests and invalidation. */
   public computeKey(request: ChatCompletionRequest): string {
+    // Every field that can change the model's output must be part of the key,
+    // otherwise two different requests would be served the same cached reply.
+    // Fields that do not affect output (user, stream_options, ...) are omitted.
     const canonical = canonicalStringify({
       model: request.model,
       messages: request.messages,
       top_p: request.top_p ?? null,
       max_tokens: request.max_tokens ?? request.max_completion_tokens ?? null,
+      seed: request.seed ?? null,
+      stop: request.stop ?? null,
+      n: request.n ?? null,
+      presence_penalty: request.presence_penalty ?? null,
+      frequency_penalty: request.frequency_penalty ?? null,
+      logit_bias: request.logit_bias ?? null,
+      response_format: request.response_format ?? null,
     });
     return sha256Hex(canonical);
   }

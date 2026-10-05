@@ -30,6 +30,9 @@ export class MistralProvider extends OpenAIProvider {
       body['random_seed'] = body['seed'];
     }
     delete body['seed'];
+    // The gateway always requests usage on streams; Mistral does not document
+    // OpenAI's stream_options, so drop it rather than risk a 422.
+    delete body['stream_options'];
     for (const field of UNSUPPORTED_FIELDS) {
       delete body[field];
     }

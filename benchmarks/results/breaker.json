@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "date": "2026-10-04T20:25:56.183Z",
+    "node": "v21.5.0",
+    "host": {
+      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+      "cpus": 8,
+      "totalMemMB": 5928
+    },
+    "autocannon": "8.0.0"
+  },
+  "cbTimeoutMs": 5000,
+  "timeline": [
+    {
+      "tMs": 111,
+      "state": "CLOSED"
+    },
+    {
+      "tMs": 1516,
+      "state": "OPEN"
+    },
+    {
+      "tMs": 6584,
+      "state": "HALF_OPEN"
+    },
+    {
+      "tMs": 6817,
+      "state": "CLOSED"
+    }
+  ],
+  "tOpenMs": 1516,
+  "upstreamRequestsToAUntilOpen": 5,
+  "upstreamRequestsToAWhileOpen": 0,
+  "healedAtMs": 4575,
+  "tHalfOpenMs": 6584,
+  "tClosedMs": 6817,
+  "openToHalfOpenMs": 5068,
+  "healToClosedMs": 2242,
+  "clientRequests": {
+    "total": 71,
+    "ok": 71
+  },
+  "clientSuccessRate": 1,
+  "pollIntervalMs": 100
+}

@@ -53,6 +53,24 @@ export async function* parseSSEStream(body: ReadableStream<Uint8Array>): AsyncGe
     return event;
   };
 
+  // Apply one complete line to the pending event; returns an event when a blank line closes it.
+  const processLine = (rawLine: string): SSEEvent | undefined => {
+    const line = stripTrailingCR(rawLine);
+    if (line === '') {
+      return flush();
+    }
+    if (!line.startsWith(':')) {
+      const { field, value: fieldValue } = parseField(line);
+      if (field === 'data') {
+        dataLines.push(fieldValue);
+      } else if (field === 'event') {
+        eventName = fieldValue;
+      }
+      // `id` and `retry` fields are intentionally ignored by the gateway.
+    }
+    return undefined;
+  };
+
   try {
     for (;;) {
       const { done, value } = await reader.read();
@@ -62,23 +80,22 @@ export async function* parseSSEStream(body: ReadableStream<Uint8Array>): AsyncGe
       buffer += decoder.decode(value, { stream: true });
       let newlineIndex = buffer.indexOf('\n');
       while (newlineIndex !== -1) {
-        const line = stripTrailingCR(buffer.slice(0, newlineIndex));
+        const line = buffer.slice(0, newlineIndex);
         buffer = buffer.slice(newlineIndex + 1);
-        if (line === '') {
-          const event = flush();
-          if (event !== undefined) {
-            yield event;
-          }
-        } else if (!line.startsWith(':')) {
-          const { field, value: fieldValue } = parseField(line);
-          if (field === 'data') {
-            dataLines.push(fieldValue);
-          } else if (field === 'event') {
-            eventName = fieldValue;
-          }
-          // `id` and `retry` fields are intentionally ignored by the gateway.
+        const event = processLine(line);
+        if (event !== undefined) {
+          yield event;
         }
         newlineIndex = buffer.indexOf('\n');
+      }
+    }
+    // The stream may end without a final newline: flush the decoder and treat what is
+    // left as a last line (previously a trailing `data: x` with no newline was dropped).
+    buffer += decoder.decode();
+    if (buffer !== '') {
+      const event = processLine(buffer);
+      if (event !== undefined) {
+        yield event;
       }
     }
     // Emit any trailing event the stream ended without a blank line after.

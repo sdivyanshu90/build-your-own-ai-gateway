@@ -7,6 +7,8 @@
  * write the response with gateway provenance headers. Streaming hijacks the
  * reply and pipes normalised OpenAI SSE chunks, terminating with `[DONE]`.
  */
+import { once } from 'node:events';
+
 import { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 
 import { type GatewayContext } from '../auth/middleware.js';
@@ -65,7 +67,10 @@ export async function completionsRoutes(app: FastifyInstance): Promise<void> {
     if (body.stream === true) {
       const prep = await router.prepareStream(body, context, { signal, bypassCache });
       reply.hijack();
+      // hijack() bypasses Fastify's own header flush, so headers added by
+      // plugins (CORS, helmet) and earlier hooks must be copied in explicitly.
       reply.raw.writeHead(200, {
+        ...(reply.getHeaders() as Record<string, string | number | string[]>),
         'content-type': 'text/event-stream',
         'cache-control': 'no-cache',
         connection: 'keep-alive',
@@ -74,7 +79,11 @@ export async function completionsRoutes(app: FastifyInstance): Promise<void> {
       });
       try {
         for await (const chunk of prep.stream) {
-          reply.raw.write(serializeSSE(chunk));
+          // Honour backpressure: a slow reader must not make the gateway buffer
+          // the rest of the generation in memory.
+          if (!reply.raw.write(serializeSSE(chunk)) && !reply.raw.destroyed) {
+            await once(reply.raw, 'drain').catch(() => undefined);
+          }
         }
         reply.raw.write(SSE_DONE_FRAME);
       } catch (error) {

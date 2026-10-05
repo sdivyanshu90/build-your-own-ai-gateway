@@ -17,6 +17,7 @@ import { config } from '../config/index.js';
 import { getDb } from '../database/index.js';
 import { getRedis } from '../database/redis.js';
 import { requestLogs } from '../database/schema.js';
+import { metrics } from '../middleware/metrics.js';
 import { type ProviderModelInfo } from '../providers/base.js';
 import { toErrorMessage } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
@@ -38,9 +39,14 @@ export interface RequestLogEntry {
 }
 
 /** ~40 days, so a monthly spend counter survives the whole billing month. */
+/** Upper bound on in-flight background log inserts before new entries are dropped. */
+const MAX_PENDING_LOG_WRITES = 1_000;
+
 const SPEND_TTL_SECONDS = 40 * 24 * 60 * 60;
 
 export class CostTracker {
+  private readonly pendingWrites = new Set<Promise<void>>();
+
   /** Estimate request cost in USD from the model's price table. */
   public estimateCost(
     model: ProviderModelInfo | null | undefined,
@@ -50,6 +56,34 @@ export class CostTracker {
     const inputPrice = model?.inputPricePer1k ?? 0;
     const outputPrice = model?.outputPricePer1k ?? 0;
     return (promptTokens / 1000) * inputPrice + (completionTokens / 1000) * outputPrice;
+  }
+
+  /**
+   * Queue a request log write without making the caller wait for PostgreSQL.
+   *
+   * The insert used to be awaited on the request path, so every response paid for a
+   * PostgreSQL commit, and a slow or blackholed database delayed it further.
+   * Writes now run in the background, bounded by MAX_PENDING_LOG_WRITES: when the
+   * database cannot keep up the newest entries are dropped (and counted) instead
+   * of growing memory without limit. {@link flush} drains them on shutdown.
+   */
+  public enqueueRequest(entry: RequestLogEntry): void {
+    if (this.pendingWrites.size >= MAX_PENDING_LOG_WRITES) {
+      metrics.requestLogsDropped.inc();
+      logger.warn('Request log queue full; dropping entry');
+      return;
+    }
+    const write = this.recordRequest(entry).finally(() => {
+      this.pendingWrites.delete(write);
+    });
+    this.pendingWrites.add(write);
+  }
+
+  /** Resolve once every queued request log write has settled (graceful shutdown, tests). */
+  public async flush(): Promise<void> {
+    while (this.pendingWrites.size > 0) {
+      await Promise.allSettled([...this.pendingWrites]);
+    }
   }
 
   /** Persist a request log entry. Never throws. */

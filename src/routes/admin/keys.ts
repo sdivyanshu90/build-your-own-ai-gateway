@@ -16,13 +16,16 @@ import { getCostTracker } from '../../services/cost-tracker.js';
 import { generateApiKey } from '../../utils/crypto.js';
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
 
+/** PostgreSQL `integer` ceiling: larger values would surface as a 500 from the database. */
+const INT32_MAX = 2_147_483_647;
+
 const createKeySchema = z.object({
   name: z.string().max(256).optional(),
   ownerId: z.string().uuid().optional(),
   monthlyBudgetUsd: z.number().nonnegative().optional(),
   allowedModels: z.array(z.string()).optional(),
-  rpmLimit: z.number().int().min(1).optional(),
-  tpmLimit: z.number().int().min(1).optional(),
+  rpmLimit: z.number().int().min(1).max(INT32_MAX).optional(),
+  tpmLimit: z.number().int().min(1).max(INT32_MAX).optional(),
   expiresAt: z.string().datetime().optional(),
 });
 
@@ -31,8 +34,8 @@ const patchKeySchema = z.object({
   isActive: z.boolean().optional(),
   monthlyBudgetUsd: z.number().nonnegative().nullable().optional(),
   allowedModels: z.array(z.string()).nullable().optional(),
-  rpmLimit: z.number().int().min(1).optional(),
-  tpmLimit: z.number().int().min(1).optional(),
+  rpmLimit: z.number().int().min(1).max(INT32_MAX).optional(),
+  tpmLimit: z.number().int().min(1).max(INT32_MAX).optional(),
   expiresAt: z.string().datetime().nullable().optional(),
 });
 

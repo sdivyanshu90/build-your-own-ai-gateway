@@ -1,0 +1,46 @@
+# Postgres + Redis for the benchmark harness and for running the integration
+# suite against pre-started dependencies (see tests/integration/setup.ts).
+# Ports are offset (55432 / 56379) so this never collides with a dev stack, and
+# both containers carry hard memory caps so they are safe on small machines.
+name: gw-bench
+services:
+  postgres:
+    image: postgres:16-alpine
+    mem_limit: 512m
+    cpus: 1.5
+    cpuset: '0,1'
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
+      POSTGRES_DB: ai_gateway
+    ports: ['127.0.0.1:55432:5432']
+    command:
+      ['postgres', '-c', 'shared_buffers=128MB', '-c', 'max_connections=100', '-c', 'fsync=on']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U gateway -d ai_gateway']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    mem_limit: 256m
+    cpus: 1
+    cpuset: '0,1'
+    command:
+      [
+        'redis-server',
+        '--save',
+        '',
+        '--appendonly',
+        'no',
+        '--maxmemory',
+        '200mb',
+        '--maxmemory-policy',
+        'volatile-lru',
+      ]
+    ports: ['127.0.0.1:56379:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 30
