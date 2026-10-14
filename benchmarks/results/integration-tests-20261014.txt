@@ -1,0 +1,21 @@
+
+> ai-gateway@1.0.0 test:integration
+> vitest run --config vitest.integration.config.ts
+
+
+ RUN  v5.0.3 /home/somu/build-your-own-ai-gateway
+
+(node:4600) [FSTDEP024] FastifyDeprecation: requestIdLogLabel option is deprecated. Use the logController option with requestIdLogLabel instead. The requestIdLogLabel top-level option will be removed in `fastify@6`.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:4600) [FSTDEP024] FastifyDeprecation: requestIdLogLabel option is deprecated. Use the logController option with requestIdLogLabel instead. The requestIdLogLabel top-level option will be removed in `fastify@6`.
+(node:4600) [FSTDEP024] FastifyDeprecation: requestIdLogLabel option is deprecated. Use the logController option with requestIdLogLabel instead. The requestIdLogLabel top-level option will be removed in `fastify@6`.
+(node:4600) [FSTDEP024] FastifyDeprecation: requestIdLogLabel option is deprecated. Use the logController option with requestIdLogLabel instead. The requestIdLogLabel top-level option will be removed in `fastify@6`.
+(node:4600) [FSTDEP024] FastifyDeprecation: requestIdLogLabel option is deprecated. Use the logController option with requestIdLogLabel instead. The requestIdLogLabel top-level option will be removed in `fastify@6`.
+(node:4600) [FSTDEP024] FastifyDeprecation: requestIdLogLabel option is deprecated. Use the logController option with requestIdLogLabel instead. The requestIdLogLabel top-level option will be removed in `fastify@6`.
+(node:4600) [FSTDEP024] FastifyDeprecation: requestIdLogLabel option is deprecated. Use the logController option with requestIdLogLabel instead. The requestIdLogLabel top-level option will be removed in `fastify@6`.
+
+ Test Files  9 passed (9)
+      Tests  66 passed (66)
+   Start at  10:49:36
+   Duration  18.32s (tests 88%, import 7%, transform 5%)
+

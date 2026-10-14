@@ -126,3 +126,9 @@ Skipping step 1 makes replicas that reload the registry after step 2 unable to d
   LB sheds traffic — no action needed.
 - **Deliberate/durable:** `DELETE /admin/providers/:id` (soft `is_active=false`) stops all
   routing to it immediately. Re-enable with `PATCH … {"isActive":true}`.
+
+## Interpreting the latest capacity and telemetry
+
+The October 14 benchmark measures 1,016 rps at c=128 in a 75-second local-mock sweep; it does not calibrate production HPA thresholds, TLS, ingress, multi-replica scaling, or real-provider concurrency. Keep the configured 150 RPS/pod threshold distinct from measured capacity.
+
+Monitor `gateway_request_logs_dropped_total` alongside HTTP success: full k6 stress drops 201,051 audit entries despite zero HTTP failures. Verify durable audit delivery separately from response availability. Avoid using `gateway_in_flight_requests` as a capacity signal after disconnects: actual abort tests leak +40 per 40 clients even as upstream work drains. Redis loss produces 1/8 HTTP 500 and 7/8 20-second client deadlines; the first recovery probe succeeds 1.82 seconds after restart ([full evidence](./benchmarks.md)).

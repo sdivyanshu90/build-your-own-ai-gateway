@@ -1,368 +1,365 @@
-# Benchmarks
+# Full gateway re-benchmark: 2026-10-14
 
-## Headline (2026-10-04, gateway on one physical core, mock upstream with 20 ms latency)
+Gateway source commit: `c065a6dc1b578cc786041366684da5a9d333b9cf`. Gateway implementation is unchanged; edits apply to benchmark instrumentation and reporting. All measurements use local mock providers or a local Ollama model. No paid provider requests were made.
 
-| Measurement                                                 | Result                                                 |
-| ----------------------------------------------------------- | ------------------------------------------------------ |
-| Overhead at c=1 (p50, non-streaming), baseline code         | +24 ms (OpenAI adapter), +15 ms (Anthropic adapter)    |
-| Streaming TTFB overhead at c=1 (p50)                        | +14 ms                                                 |
-| Max throughput, baseline code, rate limiter on, one hot key | 61 rps (collapses to 35-45 rps as the window fills)    |
-| Same, rate limiter disabled (c=64)                          | 479 rps, p50 126 ms, gateway CPU 119% of 200%          |
-| Redis Lua cost per call, limiter on vs off                  | 2.9-6.1 ms vs 0.014 ms                                 |
-| Rate-limiter exactness under 100-200 way burst              | exact (60/60, 100/100, 600/600 admitted)               |
-| Gateway memory (container) idle / under load                | 109 MiB / 110 MiB                                      |
-| Redis down                                                  | 3 of 8 requests HTTP 500, 5 of 8 unanswered after 20 s |
-| PostgreSQL down (connection refused)                        | no impact (8/8 OK)                                     |
+## Findings
 
-The audit found the rate limiter's O(window) TPM summation to be the dominant cost; it was fixed afterwards (see "What the benchmark found" and the post-fix section for the re-measurement status).
+- Across 5 paired runs, median p50 overhead at concurrency 1 is 6 ms for OpenAI and 6 ms for Anthropic.
+- Streaming TTFB overhead at concurrency 1 is 5.39 ms p50.
+- The 75-second-per-point throughput sweep peaks at 1016 rps at concurrency 128, with p50 124 ms and p99 168 ms. This sweep has no HTTP or transport failures.
+- All 3120 mock failover requests succeed, including the hanging-primary case.
+- Important remaining limits and defects: aborted-client in-flight gauges leak; Redis loss stalls requests; peak stress drops audit entries (at least 201,051 observed); future rows in the default partition prevent creation of that month's partition.
+- 206 existing tests pass (140 unit and 66 integration/e2e/security). Test success does not invalidate the defects found under load.
 
-All numbers on this page come from runs of the harness in `benchmarks/` on **2026-10-04**; raw JSON and logs are committed under `benchmarks/results/`. Nothing here was
-estimated or copied from earlier documentation. Where the repository's earlier documents (`GATEWAY.md` section 10) made performance claims, they are compared against the measurements below.
+## Hardware and isolation
 
-## Methodology
+Ryzen 7 8845HS; Windows reports 8 cores / 16 threads and 16 GiB RAM. WSL2 is configured for 6 logical CPUs and 9 GiB RAM (8.7 GiB visible), with 4 GiB swap. NVIDIA RTX 3050 Laptop GPU has 4 GiB VRAM. Windows reports an enabled NPU with driver 32.0.203.329; WSL exposes no `/dev/accel` device, so no NPU inference result is claimed. GPU placement is recorded by Ollama rather than inferred from GPU availability.
 
-**What is measured.** The cost the _gateway_ adds: the same request is sent (a) directly to a mock upstream and (b) through the gateway to that same mock, at the same concurrency,
-with the same body. Overhead = gateway latency - direct latency (per percentile). The mock removes provider variance; it says nothing about real LLM latency.
+| Component          | CPU affinity        | Memory limit             |
+| ------------------ | ------------------- | ------------------------ |
+| PostgreSQL + Redis | 0,1 (WSL core 0)    | 512 MiB + 256 MiB        |
+| Gateway            | 2,3 (WSL core 1)    | 512 MiB; swap disallowed |
+| Mock provider      | 4                   | Host process             |
+| Load generator     | 5                   | Host process             |
+| Ollama             | 4,5 plus NVIDIA GPU | Host process             |
 
-**Mock upstream** (`benchmarks/mock-upstream.mjs`): HTTP server speaking OpenAI (`/v1/chat/completions`, JSON and SSE with `stream_options.include_usage`, `/v1/embeddings`) and Anthropic
-(`/v1/messages`, JSON and SSE) shapes. Fixed 20 ms response latency (0 jitter) unless stated, 16 completion tokens, streams of 20 tokens 5 ms apart. Faults are injected at runtime
-(`errorRate`+`errorStatus`, `hangRate`, `down` = connection reset).
+The mock and generator share the third WSL-reported physical core. Gateway CPU percentages are relative to one logical CPU (200% permitted on its two SMT threads). Measurements are local HTTP/1.1 keep-alive without TLS, ingress, or network delay. Gateway uses production mode, warning-level logs, health monitoring off, and default latency-based balancing except the explicit breaker/failover block.
 
-**Load generation.** `autocannon` 8.0 (HTTP/1.1, keep-alive, one request in flight per connection), 3 s warm-up discarded, then 15 s measured per point. Streaming latencies use a small custom
-client (`streamBench` in `benchmarks/lib.mjs`) that records time to first body byte (TTFB), to the first content frame (TTFT) and total time. Percentiles are autocannon's histogram (non-streaming)
-or exact sorted-sample percentiles (streaming, failover).
+Node 22.14.0, autocannon 8.0.0, PostgreSQL 16.15, Redis 7.4.11, Docker 29.9.0, k6 2.3.0, Ollama 0.40.4. Image digests and live system data: [system-20261014.json](../benchmarks/results/system-20261014.json) and [windows-hardware-20261014.json](../benchmarks/results/windows-hardware-20261014.json).
 
-**Topology and isolation** (one Docker host, 8 logical CPUs):
+## Method
 
-| Component                                   | Where                                                                                   | Limits                                                              |
-| ------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| PostgreSQL 16 (alpine)                      | container                                                                               | 512 MiB, 1.5 CPU quota, cores 0-1, `shared_buffers=128MB`, fsync on |
-| Redis 7 (alpine)                            | container                                                                               | 256 MiB, 1 CPU quota, cores 0-1, no persistence, `volatile-lru`     |
-| Gateway                                     | `node:22.14-bookworm-slim` container running the repo's compiled `dist/` (host network) | 512 MiB (no swap), cores 2-3, `LOG_LEVEL=warn`, health monitor off  |
-| Mock upstream (two instances: :9100, :9101) | host process, `taskset`                                                                 | core 4                                                              |
-| Load generator                              | host process, `taskset`                                                                 | core 5                                                              |
-| Left free for the desktop and other jobs    |                                                                                         | cores 6-7                                                           |
+Each non-streaming point discards 3 seconds of warm-up and measures 15 seconds. The sustained sweep measures 75 seconds per point, spanning the limiter's 60-second window. A single hot key has RPM/TPM limits of 2 billion. Mock upstream latency is fixed at 20 ms, with zero jitter. Cache is enabled but uncacheable requests are used for throughput. Exact cache hits and misses are measured separately. Overhead subtracts direct-provider latency from gateway latency at the same concurrency and with equivalent bodies. Higher-concurrency overhead includes queueing.
 
-All heavy steps ran under the machine-wide lock, `nice -n 15 ionice -c3`, refusing to start below 1500 MB available memory, with containers torn down (`docker compose down -v`) afterwards.
-Because the machine is shared (WSL2, other agents running their own work between lock holds), absolute values carry noise; ratios and shapes are the reliable part.
+The streaming mock emits 20 tokens, 5 ms apart. Both provider protocols are parsed for their first actual content frame and terminal event. The 5 latency repetitions are independent runs of the paired measurement, not confidence intervals from one histogram. Autocannon latencies are histograms with millisecond resolution and describe successful responses; failures are reported separately. The long k6 tests use their own varying prompts and differ from the autocannon workload.
 
-**Hardware / software.** 11th Gen Intel Core i5-1135G7 (4 cores / 8 threads, 2.4 GHz base), 5.8 GB RAM, WSL2 Linux 6.18, Docker 29.4.3, host Node 21.5.0 (harness), gateway under Node 22.14,
-Postgres 16, Redis 7. `lscpu -e` shows logical CPUs 0/1, 2/3, 4/5, 6/7 are hyper-thread pairs of physical cores 0-3. So: Postgres+Redis share physical core 0, the **gateway has exactly one physical core (CPUs 2,3)**, the mock and the load generator share physical core 2 (CPUs 4,5), and the desktop keeps core 3. The gateway therefore has roughly the capacity of the `1 CPU` limit in the Helm chart, not more.
+## Figures
 
-**Data / config.** Providers and keys are created through the admin API (`benchmarks/seed.mjs`): a "fast" API key with RPM/TPM limits of 2 x 10^9 (so limits never bind except in the rate-limit
-phase), one OpenAI-style provider (`bench-chat`), one Anthropic-style provider (`bench-claude`, same mock), two OpenAI-style providers for failover (`bench-ha`, ports 9100/9101, 1.5 s timeout).
-Default gateway configuration except where a block says otherwise (`LATENCY_BASED` balancer, cache on, rate limiter on, auth cache 30 s).
+![Throughput, latency, repeated overhead, and stress audit loss](../benchmarks/results/overview-20261014.png)
 
-## Results (baseline: code as audited, before the performance fixes)
+[Vector figure](../benchmarks/results/overview-20261014.svg).
 
-The baseline gateway is the compiled `dist/` of commit `1e45a23` - i.e. **with** all correctness fixes up to that point but **before** the rate-limiter running-sum and background-request-log changes and before the in-flight-gauge fix (`dist/.built-from` records this in the run log). Rate limiting, auth, cache and request logging were all enabled.
+## Repeated latency measurements
 
-#### Gateway overhead
+| Adapter           | Concurrency | p50 overhead samples (ms) | Median (ms) | Range (ms) |
+| ----------------- | ----------- | ------------------------- | ----------- | ---------- |
+| openai-adapter    | 1           | 6, 6, 6, 6, 6             | 6           | 6–6        |
+| anthropic-adapter | 1           | 5, 7, 6, 6, 6             | 6           | 5–7        |
+| openai-adapter    | 16          | 17, 17, 17, 14, 16        | 17          | 14–17      |
+| anthropic-adapter | 16          | 17, 17, 17, 14, 16        | 17          | 14–17      |
 
-Same request direct-to-mock vs through the gateway. The `fast` API key is used throughout, so its sliding window accumulates every request of the last 60 s.
+## Complete mock results
+
+### Gateway overhead
 
 | adapter           | conns | direct p50 | gateway p50 | overhead p50 | direct p99 | gateway p99 | overhead p99 | gateway rps | direct rps |
 | ----------------- | ----- | ---------- | ----------- | ------------ | ---------- | ----------- | ------------ | ----------- | ---------- |
-| openai-adapter    | 1     | 21.0       | 45.0        | 24.0         | 28.0       | 219.0       | 191.0        | 20          | 46         |
-| anthropic-adapter | 1     | 21.0       | 36.0        | 15.0         | 140.0      | 708.0       | 568.0        | 20          | 36         |
-| openai-adapter    | 16    | 21.0       | 259.0       | 238.0        | 24.0       | 510.0       | 486.0        | 61          | 750        |
-| anthropic-adapter | 16    | 21.0       | 355.0       | 334.0        | 25.0       | 503.0       | 478.0        | 44          | 752        |
+| openai-adapter    | 1     | 21.0       | 27.0        | 6.0          | 23.0       | 30.0        | 7.0          | 37          | 47         |
+| anthropic-adapter | 1     | 21.0       | 26.0        | 5.0          | 22.0       | 31.0        | 9.0          | 37          | 47         |
+| openai-adapter    | 16    | 20.0       | 37.0        | 17.0         | 22.0       | 50.0        | 28.0         | 422         | 770        |
+| anthropic-adapter | 16    | 20.0       | 37.0        | 17.0         | 22.0       | 52.0        | 30.0         | 427         | 770        |
 
-#### Streaming
-
-TTFB/TTFT are measured at the client. `directAnthropic` shows 400 failures: a harness bug (the client required the OpenAI `[DONE]` sentinel, which Anthropic streams do not send) fixed afterwards; compare the Anthropic path with `directOpenAI`.
+### Streaming
 
 | path             | n   | conc | failures | TTFB p50 | TTFB p99 | TTFT p50 | TTFT p99 | total p50 | total p99 |
 | ---------------- | --- | ---- | -------- | -------- | -------- | -------- | -------- | --------- | --------- |
-| directOpenAI     | 400 | 16   | 0        | 21.6     | 71.3     | 21.7     | 71.3     | 131.2     | 155.4     |
-| gatewayOpenAI    | 400 | 16   | 0        | 255.4    | 461.2    | 255.4    | 461.2    | 437.9     | 610.3     |
-| directAnthropic  | 400 | 16   | 400      | n/a      | n/a      | n/a      | n/a      | n/a       | n/a       |
-| gatewayAnthropic | 400 | 16   | 0        | 291.3    | 657.1    | 291.3    | 657.2    | 417.4     | 808.9     |
-| directOpenAI_c1  | 150 | 1    | 0        | 22.0     | 23.5     | 22.0     | 23.5     | 129.2     | 132.9     |
-| gatewayOpenAI_c1 | 150 | 1    | 0        | 36.2     | 52.7     | 36.2     | 52.7     | 147.7     | 173.0     |
+| directOpenAI     | 400 | 16   | 0        | 21.0     | 47.8     | 21.0     | 47.8     | 127.1     | 149.9     |
+| gatewayOpenAI    | 400 | 16   | 0        | 30.5     | 38.9     | 30.6     | 38.9     | 138.3     | 151.0     |
+| directAnthropic  | 400 | 16   | 0        | 20.9     | 29.1     | 20.9     | 29.1     | 126.6     | 138.1     |
+| gatewayAnthropic | 400 | 16   | 0        | 31.2     | 42.0     | 31.2     | 42.0     | 139.6     | 150.0     |
+| directOpenAI_c1  | 150 | 1    | 0        | 21.6     | 23.0     | 21.6     | 23.0     | 125.9     | 133.6     |
+| gatewayOpenAI_c1 | 150 | 1    | 0        | 27.0     | 34.2     | 27.0     | 34.3     | 130.8     | 138.2     |
 
-overhead (gateway - direct, p50 ms): {"openai_c16":{"ttfb":233.78,"ttft":233.76,"total":306.64},"anthropic_c16":{"ttfb":291.33,"ttft":291.34,"total":417.41},"openai_c1":{"ttfb":14.23,"ttft":14.23,"total":18.55}}
-metrics before: gateway_http_requests_total{method="POST",route="/v1/chat/completions",status_code="200",service="ai-gateway"} 2706 ; gateway_in_flight_requests{service="ai-gateway"} 68
-metrics after: gateway_http_requests_total{method="POST",route="/v1/chat/completions",status_code="200",service="ai-gateway"} 3656 ; gateway_in_flight_requests{service="ai-gateway"} 68
+overhead (gateway - direct, p50 ms): {"openai_c16":{"ttfb":9.54,"ttft":9.54,"total":11.17},"anthropic_c16":{"ttfb":10.31,"ttft":10.3,"total":13.07},"openai_c1":{"ttfb":5.39,"ttft":5.4,"total":4.9}}
+metrics before: gateway_http_requests_total{method="POST",route="/v1/chat/completions",status_code="200",service="ai-gateway"} 16374 ; gateway_in_flight_requests{service="ai-gateway"} 62
+metrics after: gateway_http_requests_total{method="POST",route="/v1/chat/completions",status_code="200",service="ai-gateway"} 17324 ; gateway_in_flight_requests{service="ai-gateway"} 62
 streams sent: 1900
 
-#### Max sustainable throughput
+### Throughput: 15-second sweep
 
-Concurrency stepped up until rps stopped scaling (<5% gain) or errors exceeded 1%. `redis evalsha us/call` is Redis's own `INFO commandstats` for all Lua calls during the step.
+| conns | rps | p50 ms | p99 ms | max ms | non-2xx | transport errors (incl. timeouts) | gw CPU % (of 1 core) | gw mem MiB | mock CPU % | loadgen CPU % | redis evalsha us/call | pg commits |
+| ----- | --- | ------ | ------ | ------ | ------- | --------------------------------- | -------------------- | ---------- | ---------- | ------------- | --------------------- | ---------- |
+| 8     | 245 | 32.0   | 41.0   | 49.0   | 0       | 0                                 | 50.8                 | 90.2       | 4          | 4             | 20.12                 | 4244       |
+| 16    | 432 | 36.0   | 50.0   | 57.0   | 0       | 0                                 | 65.4                 | 95.4       | 5          | 5             | 16.85                 | 7733       |
+| 32    | 681 | 46.0   | 65.0   | 77.0   | 0       | 0                                 | 92.7                 | 104.3      | 7          | 6             | 15.15                 | 12229      |
+| 64    | 906 | 69.0   | 95.0   | 176.0  | 0       | 0                                 | 117.9                | 112.7      | 7          | 8             | 13.76                 | 16140      |
+| 128   | 997 | 126.0  | 166.0  | 553.0  | 0       | 0                                 | 127.3                | 126.4      | 7          | 8             | 11.91                 | 17900      |
+| 192   | 990 | 188.0  | 240.0  | 1210.0 | 0       | 0                                 | 131.9                | 133.1      | 6          | 8             | 11.74                 | 17900      |
 
-| conns | rps | p50 ms | p99 ms | max ms | non-2xx | gw CPU % (of 1 core) | gw mem MiB | mock CPU % | loadgen CPU % | redis evalsha us/call | pg commits |
-| ----- | --- | ------ | ------ | ------ | ------- | -------------------- | ---------- | ---------- | ------------- | --------------------- | ---------- |
-| 8     | 61  | 128.0  | 183.0  | 214.0  | 0       | 32.1                 | 84.5       | 3          | 3             | 2856.05               | 1164       |
-| 32    | 35  | 770.0  | 1735.0 | 1875.0 | 0       | 9.3                  | 86.5       | 1          | 2             | 6065.5                | 755        |
+max rps: 997; stopped: saturated: rps gain <5% at c=192
 
-max rps: 61; stopped: saturated: rps gain <5% at c=32
-
-#### Cache hit vs miss
-
-Run order was hit, miss, uncacheable at each concurrency; note latency _grows_ with each run, the signature of the O(window) rate-limiter cost (see below).
+### Cache hit vs miss
 
 status samples: {"first":"MISS","second":"HIT","uncacheable":"SKIP"}
 
-| run             | rps | p50 ms | p90 ms | p99 ms | non-2xx |
-| --------------- | --- | ------ | ------ | ------ | ------- |
-| hit_c1          | 27  | 33.0   | 45.0   | 79.0   | 0       |
-| miss_c1         | 19  | 51.0   | 58.0   | 69.0   | 0       |
-| uncacheable_c1  | 8   | 74.0   | 127.0  | 1456.0 | 0       |
-| hit_c16         | 39  | 163.0  | 199.0  | 9349.0 | 0       |
-| miss_c16        | 49  | 310.0  | 402.0  | 605.0  | 0       |
-| uncacheable_c16 | 24  | 516.0  | 1056.0 | 1826.0 | 0       |
+| run             | rps  | p50 ms | p90 ms | p99 ms | non-2xx |
+| --------------- | ---- | ------ | ------ | ------ | ------- |
+| hit_c1          | 444  | 2.0    | 2.0    | 4.0    | 0       |
+| miss_c1         | 36   | 27.0   | 28.0   | 31.0   | 0       |
+| uncacheable_c1  | 38   | 26.0   | 27.0   | 28.0   | 0       |
+| hit_c16         | 1806 | 8.0    | 10.0   | 16.0   | 0       |
+| miss_c16        | 406  | 39.0   | 42.0   | 49.0   | 0       |
+| uncacheable_c16 | 419  | 37.0   | 42.0   | 50.0   | 0       |
 
-#### Rate-limiter correctness under burst
-
-Fresh API key per case, requests fired concurrently; the limiter must admit exactly the limit.
+### Rate limiter correctness under burst
 
 | limit    | requests | concurrency | allowed (200) | rejected (429) | exact? | wall ms | retry-after sample |
 | -------- | -------- | ----------- | ------------- | -------------- | ------ | ------- | ------------------ |
-| 60 rpm   | 300      | 100         | 60            | 240            | true   | 962     | 60                 |
-| 100 rpm  | 1000     | 200         | 100           | 900            | true   | 2365    | 60                 |
-| 600 rpm  | 2000     | 200         | 600           | 1400           | true   | 14912   | 57                 |
-| 5000 tpm | 20       | 4           | 3             | 17             | n/a    | 55      | 60                 |
+| 60 rpm   | 300      | 100         | 60            | 240            | true   | 362     | 60                 |
+| 100 rpm  | 1000     | 200         | 100           | 900            | true   | 781     | 60                 |
+| 600 rpm  | 2000     | 200         | 600           | 1400           | true   | 1510    | 60                 |
+| 5000 tpm | 20       | 4           | 3             | 17             | n/a    | 44      | 60                 |
 
-#### Footprint
+### Warm memory footprint
 
-idle: 109MiB / 512MiB|0.85%
-under load (c=64): {"samples":10,"maxMemMiB":110,"avgCpuPct":14.4,"maxCpuPct":27.74}; rps 49
-after settle: 109.4MiB / 512MiB|1.25%
-process_cpu_seconds_total{service="ai-gateway"} 74.073759
-process_resident_memory_bytes{service="ai-gateway"} 161083392
-nodejs_heap_size_used_bytes{service="ai-gateway"} 35257184
+idle: 132.2MiB / 512MiB|2.19%
+under load (c=64): {"samples":11,"maxMemMiB":133.5,"avgCpuPct":116.8,"maxCpuPct":119.55}; rps 894
+after settle: 132.4MiB / 512MiB|3.20%
+process_cpu_seconds_total{service="ai-gateway"} 265.595358
+process_resident_memory_bytes{service="ai-gateway"} 189296640
+nodejs_heap_size_used_bytes{service="ai-gateway"} 55100016
 
-#### Rate limiter on vs off (c=64)
+### Throughput
 
-| gateway              | rps | p50 ms | p99 ms | Redis Lua us/call (all scripts) |
-| -------------------- | --- | ------ | ------ | ------------------------------- |
-| limiter off          | 479 | 126    | 233    | 14                              |
-| limiter on (hot key) | 45  | 1329   | 1671   | 4640                            |
+| conns | rps  | p50 ms | p99 ms | max ms | non-2xx | transport errors (incl. timeouts) | gw CPU % (of 1 core) | gw mem MiB | mock CPU % | loadgen CPU % | redis evalsha us/call | pg commits |
+| ----- | ---- | ------ | ------ | ------ | ------- | --------------------------------- | -------------------- | ---------- | ---------- | ------------- | --------------------- | ---------- |
+| 8     | 246  | 32.0   | 41.0   | 72.0   | 0       | 0                                 | 50.3                 | 97.2       | 4          | 3             | 19.78                 | 18970      |
+| 16    | 429  | 37.0   | 48.0   | 68.0   | 0       | 0                                 | 71.4                 | 104.2      | 5          | 5             | 18.33                 | 33405      |
+| 32    | 678  | 46.0   | 66.0   | 94.0   | 0       | 0                                 | 94.4                 | 112.6      | 6          | 6             | 16.56                 | 52745      |
+| 64    | 909  | 68.0   | 97.0   | 168.0  | 0       | 0                                 | 117.3                | 124.9      | 7          | 8             | 14.79                 | 70900      |
+| 128   | 1016 | 124.0  | 168.0  | 463.0  | 0       | 0                                 | 129.7                | 138.1      | 6          | 8             | 13.41                 | 79050      |
+| 192   | 997  | 193.0  | 238.0  | 1200.0 | 0       | 0                                 | 135                  | 147.1      | 6          | 8             | 12.62                 | 77742      |
 
-#### Failover
+max rps: 1016; stopped: saturated: rps gain <5% at c=192
 
-| scenario                     | ok rate | status codes         | lat p50 | lat p95 | lat p99 | lat max | failover hist    | A reqs | B reqs |
-| ---------------------------- | ------- | -------------------- | ------- | ------- | ------- | ------- | ---------------- | ------ | ------ |
-| healthy_baseline             | 100.0%  | {"200":600}          | 183.8   | 1864.5  | 23116.0 | 24616.8 | {"0":600}        | 300    | 300    |
-| primary_503_always           | 97.7%   | {"200":586,"500":14} | 252.3   | 876.7   | 22916.3 | 24617.2 | {"0":576,"1":10} | 10     | 586    |
-| primary_429_always           | 99.3%   | {"200":596,"503":4}  | 259.7   | 1012.8  | 3197.4  | 30902.6 | {"0":585,"1":11} | 12     | 600    |
-| primary_50pct_503            | 99.8%   | {"200":599,"500":1}  | 231.6   | 2261.7  | 19666.1 | 19806.6 | {"0":569,"1":30} | 55     | 574    |
-| primary_connection_reset     | 100.0%  | {"200":600}          | 250.9   | 652.5   | 33116.9 | 33269.1 | {"0":590,"1":10} | 10     | 600    |
-| primary_hangs_timeout_1500ms | 91.7%   | {"200":110,"500":10} | 190.0   | 32433.9 | 32838.8 | 32933.9 | {"0":101,"1":9}  | 9      | 110    |
+### failover
 
-#### Circuit breaker timing
+| scenario                     | ok rate | status codes | lat p50 | lat p95 | lat p99 | lat max | failover hist    | A reqs | B reqs |
+| ---------------------------- | ------- | ------------ | ------- | ------- | ------- | ------- | ---------------- | ------ | ------ |
+| healthy_baseline             | 100.0%  | {"200":600}  | 35.9    | 43.6    | 111.3   | 123.2   | {"0":600}        | 300    | 300    |
+| primary_503_always           | 100.0%  | {"200":600}  | 34.3    | 42.0    | 55.9    | 62.3    | {"0":592,"1":8}  | 8      | 600    |
+| primary_429_always           | 100.0%  | {"200":600}  | 32.5    | 38.5    | 55.0    | 61.0    | {"0":594,"1":6}  | 6      | 600    |
+| primary_50pct_503            | 100.0%  | {"200":600}  | 31.7    | 53.7    | 56.7    | 59.6    | {"0":504,"1":96} | 190    | 506    |
+| primary_connection_reset     | 100.0%  | {"200":600}  | 33.1    | 39.3    | 44.2    | 46.9    | {"0":594,"1":6}  | 6      | 600    |
+| primary_hangs_timeout_1500ms | 100.0%  | {"200":120}  | 34.4    | 1529.8  | 1554.5  | 1554.7  | {"0":112,"1":8}  | 8      | 120    |
+
+### Circuit breaker timing
 
 ```json
 {
   "meta": {
-    "date": "2026-10-04T20:25:56.183Z",
-    "node": "v21.5.0",
+    "date": "2026-10-14T11:17:24.476Z",
+    "node": "v22.14.0",
     "host": {
-      "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
-      "cpus": 8,
-      "totalMemMB": 5928
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "cpus": 6,
+      "totalMemMB": 8940
     },
     "autocannon": "8.0.0"
   },
   "cbTimeoutMs": 5000,
-  "tOpenMs": 1516,
+  "tOpenMs": 622,
   "upstreamRequestsToAUntilOpen": 5,
   "upstreamRequestsToAWhileOpen": 0,
-  "healedAtMs": 4575,
-  "tHalfOpenMs": 6584,
-  "tClosedMs": 6817,
-  "openToHalfOpenMs": 5068,
-  "healToClosedMs": 2242,
+  "healedAtMs": 3657,
+  "tHalfOpenMs": 5667,
+  "tClosedMs": 5769,
+  "openToHalfOpenMs": 5045,
+  "healToClosedMs": 2112,
   "clientRequests": {
-    "total": 71,
-    "ok": 71
+    "total": 116,
+    "ok": 116
   },
   "clientSuccessRate": 1,
   "pollIntervalMs": 100
 }
 ```
 
-timeline: 111ms CLOSED -> 1516ms OPEN -> 6584ms HALF_OPEN -> 6817ms CLOSED
+timeline: 2ms CLOSED -> 622ms OPEN -> 5667ms HALF_OPEN -> 5769ms CLOSED
 
-#### Dependency outages
+### Outage probe summary
 
-baseline: n=10 codes={"200":10} lat p50=103.0 max=1249.0 ms
-redisDown: n=8 codes={"500":3,"client-timeout-20s":5} lat p50=20000.0 max=20000.0 ms
-postgresDown: n=8 codes={"200":8} lat p50=53.0 max=793.0 ms
-redis recovery ms: 2838; postgres recovery ms: 1694
-postgres-down streaming: {"failures":0,"ttfb":{"n":3,"mean":61.86,"p50":55.57,"p90":79.1,"p95":79.1,"p99":79.1,"max":79.1}}
+baseline: n=10 codes={"200":10} lat p50=31.0 max=67.0 ms
+redisDown: n=8 codes={"500":1,"client-timeout-20s":7} lat p50=20000.0 max=20000.0 ms
+postgresDown: n=8 codes={"200":8} lat p50=29.0 max=33.0 ms
+redis recovery ms: 1820; postgres recovery ms: 30
+postgres-down streaming: {"failures":0,"ttfb":{"n":3,"mean":27.92,"p50":27.47,"p90":29.45,"p95":29.45,"p99":29.45,"max":29.45}}
 
-## What the benchmark found
+The memory check runs after earlier load: warm idle is 132.2MiB, c=64 maximum is 133.5 MiB, and settled memory is 132.4MiB. The sustained sweep maximum is 147.1 MiB. These container working-memory figures are distinct from process RSS and are not cold-start measurements.
 
-Each item below was _discovered_ by these runs (or confirmed by them), then fixed or documented.
+## Limiter on/off: 75-second comparisons
 
-1. **The rate limiter was the throughput bottleneck, and its cost grew with load.** Redis `commandstats` during the baseline throughput steps show Lua calls costing **2.9 ms (c=8) to 6.1 ms (c=32)
-   per call** while every other Redis command stayed at 1-5 microseconds. With the limiter disabled (`RATE_LIMIT_ENABLED=false`, c=64) the same gateway served **479 rps** at p50 126 ms with Lua calls at
-   14 microseconds; with the limiter on and a hot key it served **45 rps** (p50 1329 ms). The gateway process itself was mostly idle (9-32% of a core) while requests queued behind Redis's single thread. Cause: the
-   TPM check read and string-matched every member of the 60 s window on every call (`src/rate-limiter/index.ts`), so per-call cost grows with the request rate and total cost is quadratic. Each hit/miss/uncacheable
-   cache run was slower than the one before it for the same reason. Fixed by a running sum (commit `cccfdfd`, O(expired members) per call); see the post-fix section for whether it was re-measured.
-2. **Absolute baseline overhead was far from the "< 5 ms p50, ~10,000 RPS per instance" stated in `GATEWAY.md` section 10.** Even at concurrency 1 the gateway added 15-24 ms p50 (c=1) and the best
-   throughput on one physical core was 61 rps with the limiter on a hot key (479 rps with it off - still ~20x below 10,000, though that figure was for a 4-vCPU node and a stub upstream). Those claims were removed from `GATEWAY.md`.
-3. **Request logging sat on the request path**: with the limiter off, PostgreSQL saw one commit per request (8219 commits for 8306 requests in one step). Moved to a bounded background queue (`0518bcb`).
-4. **`gateway_in_flight_requests` read 68 on an idle gateway** after load generators aborted connections: Fastify skips `onResponse` for aborted requests. Fixed with an `onRequestAbort` hook (`b04ef82`). Completed
-   streams were counted correctly (950 gateway streams -> +950 in `gateway_http_requests_total`).
-5. **Redis outage behaviour contradicted the docs**: requests hung (5 of 8 unanswered after 20 s) or returned 500 (3 of 8) instead of degrading ([Dependency outages](#dependency-outages)).
-6. **PostgreSQL refusing connections did not affect requests** (8/8 OK, streaming OK) - the documented claim was right for that failure mode.
-7. **The partition pitfall is real**: inserting a future-month row lands in `request_logs_default`, after which `create_request_logs_partition` for that month fails with
-   `updated partition constraint for default partition ... would be violated by some row` (`benchmarks/results/partition-check.txt`, PostgreSQL 16).
-8. **Rate-limiter exactness held** at 100-way and 200-way concurrency: exactly the limit was admitted in every case (60/300, 100/1000, 600/2000), and a 5000-TPM key admitted 3 requests of ~1250 estimated tokens.
-   The burst window never produced a rejection reason of its own (all rejections were RPM/TPM) - consistent with the code analysis that it is inert.
-9. **Failover and breaker results (baseline, ROUND_ROBIN, breaker threshold 5 / timeout 5 s):** client success was 100% (600/600) with the primary reset or healthy, 97.7% (586/600) with the primary always 503,
-   99.8% with 50% 503s, 99.3% with always-429 and 91.7% (110/120) with a hanging primary (1.5 s timeout); the non-200s were HTTP 500/503 whose cause was **not diagnosed** and coincide with extreme latency tails
-   (p99 20-33 s, even in the healthy scenario) from the saturated rate limiter, so this data shows the _mechanism_ (only 9-12 requests ever reached the failing primary after the breaker opened; with 50% errors it
-   still saw 55) but not clean failover latency. Breaker timings were clean: OPEN after exactly 5 upstream failures (1.5 s into the run), **0 upstream requests while OPEN**, first request after the 5 s timeout moved it to HALF_OPEN
-   (observed 5.07 s after opening, 100 ms poll), CLOSED 2.2 s after the provider healed (two probe successes), and the client saw 71/71 successful responses throughout.
-10. **Client aborts (baseline):** `gateway_in_flight_requests` leaked +40 per 40 aborted requests, and in the non-streaming case 15 upstream requests were still in flight 8 s after every client had aborted: the abort
-    signal is created after auth/rate limiting, so a client that disconnected while queued never aborted it. Fixed (`fix(routes): abort immediately...`); after the metrics fix the gauge no longer leaks.
-11. **Harness bugs caught along the way** (kept honest): the streaming client rejected Anthropic streams (no `[DONE]`), and an empty-body admin POST with a JSON content type is a 400 in Fastify.
+| Limiter | Concurrency | RPS | p50 ms | p99 ms | HTTP failures | Transport errors |
+| ------- | ----------- | --- | ------ | ------ | ------------- | ---------------- |
+| off     | 64          | 957 | 65     | 95     | 0             | 0                |
+| on      | 64          | 888 | 70     | 107    | 0             | 0                |
 
-### Micro-benchmark
+Redis Lua figures in the throughput table aggregate all scripts and cover warm-up plus measurement; they do not isolate the limiter's individual script.
 
-`scripts/benchmark.ts` (pure CPU, no I/O): cache-key derivation 50 360 ops/s (19.9 us/op), LB candidate-set key 87 679 ops/s (11.4 us/op), run pinned to one core on the loaded machine
-(`benchmarks/results/micro-benchmark.txt`). Neither is a bottleneck.
+## Client aborts and metrics
 
-## Interpretation
+| Case                                | Clients | Upstream active at abort | Upstream drained after (ms) | Gauge before | Gauge after |
+| ----------------------------------- | ------- | ------------------------ | --------------------------- | ------------ | ----------- |
+| stream_abort_mid_generation         | 40      | 40                       | 71                          | 1            | 41          |
+| nonstream_abort_while_upstream_slow | 40      | 40                       | 65                          | 41           | 81          |
 
-- The gateway's per-request CPU cost is modest: with the limiter off one physical core (two hyper-threads) sustained ~480 rps at 119% CPU of a 200% allowance, p50 +106 ms over a 20 ms upstream at c=64
-  (queueing, not service time: c=64 / 479 rps = 134 ms Little's-law latency). Treat ~500 rps per core as the order of magnitude for this build _before_ the fixes, dominated by JSON handling, one Postgres commit and 6-7 Redis
-  commands per request (from `INFO commandstats`).
-- Overhead numbers at c>1 are queueing delay. For a latency-overhead figure use c=1 (adds ~15-24 ms with a hot key; the streaming TTFB overhead at c=1 was +14 ms).
-- Memory is small and flat: ~109 MiB container memory idle and under load (RSS 161 MB per `/metrics`), nowhere near the 512 MiB limit; `GATEWAY.md`'s "~200 MB baseline" was an over-estimate for this configuration.
+The metrics request itself contributes one active request. Both aborted-client cases leak +40 in the gauge even though upstream work drains. Streaming completion counts remain correct. The leaked gauge must not be used to infer active load or capacity. These results reproduce the issue on actual client disconnections, despite the earlier onRequestAbort fix.
 
-## Results after the performance fixes
+## Dependency outages
 
-**Read this first: this re-run is not a valid before/after comparison.** It used the same harness, code from commit `f40e8d6` (git worktree; includes the running TPM sum and background request log, but not the later abort-signal fix), but the shared machine was stalling system-wide while it ran: the _direct-to-mock_ baseline itself shows a 24.9 s p99 (c=1 table below) and the throughput step aborted on errors (`non-2xx` 39, p99 27 s at c=8). Gateway rps/latency in the tables are therefore dominated by machine noise and must not be read as the effect of the fixes. Two signals are usable: (1) Redis's own accounting of Lua cost at c=8 fell from **2856 us/call to 417 us/call** (same step, same `INFO commandstats` method; the window held far fewer requests in this run, so treat as indicative); (2) the abort phase shows client-abort propagation working (below). A clean re-run (`BENCH_LABEL=after benchmarks/run-all.sh F`) was not possible before the deadline.
+Redis outage probes: {"500":1,"client-timeout-20s":7}. The 20-second values are client deadlines, not completed server response times. First successful recovery probe arrives 1820 ms after restart. PostgreSQL connection-refusal probes: {"200":8}, with 0 failed streams among 3. This does not establish blackholed-connection behavior or durable logging during a database outage.
 
-#### Gateway overhead
+The separate partition check reproduces the future-row/default-partition issue; the synthetic row is removed afterward. [partition-check-20261014.txt](../benchmarks/results/partition-check-20261014.txt).
 
-| adapter           | conns | direct p50 | gateway p50 | overhead p50 | direct p99 | gateway p99 | overhead p99 | gateway rps | direct rps |
-| ----------------- | ----- | ---------- | ----------- | ------------ | ---------- | ----------- | ------------ | ----------- | ---------- |
-| openai-adapter    | 1     | 35.0       | 63.0        | 28.0         | 24876.0    | 819.0       | -24057.0     | 9           | 8          |
-| anthropic-adapter | 1     | 24.0       | 87.0        | 63.0         | 143.0      | 21159.0     | 21016.0      | 3           | 32         |
-| openai-adapter    | 16    | 25.0       | 210.0       | 185.0        | 207.0      | 7204.0      | 6997.0       | 41          | 441        |
-| anthropic-adapter | 16    | 25.0       | 302.0       | 277.0        | 1498.0     | 5615.0      | 4117.0       | 41          | 321        |
+## Full k6 schedules
 
-#### Streaming
+| Schedule | Duration | HTTP requests | Mean RPS | p50 ms | p95 ms | HTTP failure rate | Failed thresholds |
+| -------- | -------- | ------------- | -------- | ------ | ------ | ----------------- | ----------------- |
+| baseline | 5 min    | 14556         | 48.36    | 29.38  | 34.84  | 0.0000%           | none              |
+| stress   | 20 min   | 1201206       | 917.49   | 233.39 | 463.97 | 0.0000%           | none              |
+| failover | 3 min    | 8752          | 48.48    | 29.36  | 37.24  | 0.0000%           | none              |
 
-| path             | n   | conc | failures | TTFB p50 | TTFB p99 | TTFT p50 | TTFT p99 | total p50 | total p99 |
-| ---------------- | --- | ---- | -------- | -------- | -------- | -------- | -------- | --------- | --------- |
-| directOpenAI     | 400 | 16   | 0        | 63.7     | 405.6    | 64.0     | 405.6    | 221.1     | 748.8     |
-| gatewayOpenAI    | 400 | 16   | 0        | 276.0    | 1958.5   | 276.2    | 1958.8   | 525.1     | 32632.8   |
-| directAnthropic  | 400 | 16   | 0        | 32.2     | 680.5    | 32.2     | 680.5    | 158.7     | 680.6     |
-| gatewayAnthropic | 400 | 16   | 2        | 250.5    | 2071.3   | 251.3    | 2074.2   | 485.3     | 30391.9   |
-| directOpenAI_c1  | 150 | 1    | 0        | 30.5     | 3318.7   | 30.5     | 3318.9   | 157.4     | 4775.9    |
-| gatewayOpenAI_c1 | 150 | 1    | 0        | 59.7     | 1743.5   | 59.8     | 1747.4   | 194.3     | 10465.3   |
+Baseline: 50 constant VUs, one-second sleeps. Stress: 0→50→200→500→500→200→50→0 over the complete 20-minute schedule. Failover: 50 constant VUs while the primary is disabled at 60 seconds and restored at 120 seconds; provider update success is checked and thresholded.
 
-overhead (gateway - direct, p50 ms): {"openai_c16":{"ttfb":212.31,"ttft":212.19,"total":304.05},"anthropic_c16":{"ttfb":218.33,"ttft":219.15,"total":326.57},"openai_c1":{"ttfb":29.27,"ttft":29.25,"total":36.91}}
-metrics before: gateway_http_requests_total{method="POST",route="/v1/chat/completions",status_code="200",service="ai-gateway"} 1285 ; gateway_http_requests_total{method="POST",route="/v1/chat/completions",status_code="503",service="ai-gateway"} 96 ; gateway_in_flight_requests{service="ai-gateway"} -28
-metrics after: gateway_http_requests_total{method="POST",route="/v1/chat/completions",status_code="200",service="ai-gateway"} 2233 ; gateway_http_requests_total{method="POST",route="/v1/chat/completions",status_code="503",service="ai-gateway"} 98 ; gateway_in_flight_requests{service="ai-gateway"} -30
-streams sent: 1900
+At least 201,051 audit queue drops were observed in the long stress phase. The bounded background logger protects response availability by discarding entries when its 1,000-write queue fills. Successful HTTP responses therefore do not imply complete audit logs. Client summary thresholds do not check audit completeness. The stress test maximum is 109.37 seconds, coinciding with a 119.23-second gap between nominally 10-second host-monitor samples. This is consistent with a host/VM scheduling pause; gateway-specific attribution of that extreme tail is uncertain. The full stress mean rate includes the elapsed pause. Numeric p99 is absent from these legacy k6 summaries; the baseline's p99<500 ms threshold is still evaluated. Time-series snapshots: [monitor-20261014.jsonl](../benchmarks/results/monitor-20261014.jsonl).
 
-#### Throughput
+## GPU-backed local model
 
-| conns | rps | p50 ms | p99 ms  | max ms  | non-2xx | gw CPU % (of 1 core) | gw mem MiB | mock CPU % | loadgen CPU % | redis evalsha us/call | pg commits |
-| ----- | --- | ------ | ------- | ------- | ------- | -------------------- | ---------- | ---------- | ------------- | --------------------- | ---------- |
-| 8     | 20  | 219.0  | 27329.0 | 27329.0 | 39      | 59.1                 | 86.3       | 4          | 30            | 417.29                | 233        |
+Model: `qwen2.5:0.5b`; backend label: `gpu`. | Path | N | Concurrency | TTFT p50 ms | TTFT p99 ms | Decode tokens/s p50 | Errors |
+| --- | --- | --- | --- | --- | --- | --- |
+| stream_direct_c1 | 20 | 1 | 22.14 | 34.23 | 200.21 | 0 |
+| stream_gateway_c1 | 20 | 1 | 28.17 | 43.23 | 212.8 | 0 |
+| stream_direct_c2 | 20 | 2 | 26.45 | 40 | 179.1 | 0 |
+| stream_gateway_c2 | 20 | 2 | 34.04 | 47.1 | 196.43 | 0 |
 
-max rps: 20; stopped: errors >1% at c=8
+| Non-streaming path | N   | p50 ms | p99 ms |
+| ------------------ | --- | ------ | ------ |
+| nonstream_direct   | 20  | 321.51 | 432.38 |
+| nonstream_gateway  | 20  | 306.18 | 346.53 |
 
-#### Cache
+Model load / first warm-up request: 53222 ms (excluded from comparisons). Real-model failover returned 20/20 HTTP 200 responses. Processor placement: [ollama-processor-20261014.txt](../benchmarks/results/ollama-processor-20261014.txt); temperature samples: [ollama-thermal-20261014.csv](../benchmarks/results/ollama-thermal-20261014.csv). This small local run demonstrates a real upstream and accounting; its sequential direct/gateway order and model prefix-cache effects do not establish precise isolated overhead. Use the paired mock measurements for that.
 
-status samples: {"first":"MISS","second":"HIT","uncacheable":"SKIP"}
+Ollama confirms 25/25 layers offloaded and 100% GPU placement on the 4 GiB RTX 3050 Laptop GPU; peak sampled temperature is 67°C.
 
-| run             | rps | p50 ms | p90 ms | p99 ms  | non-2xx |
-| --------------- | --- | ------ | ------ | ------- | ------- |
-| hit_c1          | 21  | 17.0   | 47.0   | 4781.0  | 0       |
-| miss_c1         | 20  | 43.0   | 99.0   | 297.0   | 110     |
-| uncacheable_c1  | 9   | 34.0   | 177.0  | 28655.0 | 25      |
-| hit_c16         | 202 | 49.0   | 153.0  | 658.0   | 0       |
-| miss_c16        | 132 | 91.0   | 207.0  | 577.0   | 0       |
-| uncacheable_c16 | 26  | 114.0  | 314.0  | 2765.0  | 0       |
+Core usage fields (prompt, completion, total tokens) agree in 4/4 deterministic direct/gateway pairs. Ollama's prompt_tokens_details.cached_tokens field is omitted by the gateway. The local run records 65 audit rows, 2964 prompt tokens, 4160 completion tokens, and $0.011284 at synthetic benchmark prices. Client-observed decode rate is completion tokens divided by elapsed time after the first content frame. Accounting evidence: [ollama-main-20261014.json](../benchmarks/results/ollama-main-20261014.json). Synthetic model prices in the benchmark are accounting inputs, not an actual provider bill.
 
-#### Rate limiter correctness
+## CPU and microbenchmarks
 
-| limit    | requests | concurrency | allowed (200) | rejected (429) | exact? | wall ms | retry-after sample |
-| -------- | -------- | ----------- | ------------- | -------------- | ------ | ------- | ------------------ |
-| 60 rpm   | 300      | 100         | 60            | 240            | true   | 2853    | 60                 |
-| 100 rpm  | 1000     | 200         | 100           | 900            | true   | 11055   | 60                 |
-| 600 rpm  | 2000     | 200         | 600           | 1355           | true   | 44505   | 24                 |
-| 5000 tpm | 20       | 4           | 3             | 17             | n/a    | 298     | 60                 |
+```text
 
-#### Footprint
+> ai-gateway@1.0.0 benchmark
+> tsx scripts/benchmark.ts
 
-idle: 102.1MiB / 512MiB|1.65%
-under load (c=64): {"samples":1,"maxMemMiB":102.7,"avgCpuPct":110.1,"maxCpuPct":110.06}; rps 45
-after settle: 101.6MiB / 512MiB|1.06%
-process_cpu_seconds_total{service="ai-gateway"} 475.896138
-process_resident_memory_bytes{service="ai-gateway"} 158720000
-nodejs_heap_size_used_bytes{service="ai-gateway"} 33420184
+AI gateway microbenchmarks
 
-#### Client abort propagation (after)
+cache key derivation             384493 ops/s      2600.8 ns/op
+LB candidate-set key            1007252 ops/s       992.8 ns/op
 
-40 clients abort mid-request; `upstreamInflightZeroAfterMs` is how long the mock upstream still had requests in flight after the aborts (baseline run: stream 364 ms but the non-stream case never reached zero within 8 s and the in-flight gauge leaked +40 per case).
+Done.
 
-```json
-{
-  "stream_abort_mid_generation": {
-    "clients": 40,
-    "abortAfterMs": 400,
-    "upstreamInflightAtAbort": 40,
-    "upstreamInflightZeroAfterMs": 315,
-    "gatewayInFlightGaugeBefore": null,
-    "gatewayInFlightGaugeAfter": null
-  },
-  "nonstream_abort_while_upstream_slow": {
-    "clients": 40,
-    "abortAfterMs": 300,
-    "upstreamInflightAtAbort": 0,
-    "upstreamInflightZeroAfterMs": 326,
-    "gatewayInFlightGaugeBefore": null,
-    "gatewayInFlightGaugeAfter": null
-  }
-}
 ```
 
-## Real local model (Ollama, qwen2.5:0.5b) - attempted, not completed
+CPU profile summary (percentages are sampled wall time, not fractions of total CPU cycles):
 
-The owner asked for a zero-spend "real model" run on the laptop's NVIDIA MX330 (2 GB VRAM, Pascal) using Ollama v0.35.1 (release tarball, no sudo). The harness is committed
-(`benchmarks/run-ollama.sh` and the `ollama` / `ollamaFailover` phases of `bench.mjs`: streaming TTFT and decode tokens/s direct vs through the gateway, non-streaming latency, usage accounting vs Ollama's
-reported usage, failover to the real model behind a mock that answers 503) but **produced no results**:
+```text
+total sampled: 111846 ms over 88293 samples
 
-- Thermal guard: the GPU idled at 85-86 C (throttle reason `0x20`, software thermal slowdown) and never dropped below the mandatory 80 C within the 5-minute wait, so the guard correctly refused GPU
-  inference and forced CPU-only (`CUDA_VISIBLE_DEVICES=-1`). Peak temperature during the attempt: 86 C (`benchmarks/results/ollama-thermal.csv`, 98 samples), well under the 90 C trip.
-- CPU attempt: `llama-server` took 139 s to start on the two logical CPUs left to it and the first (warm-up) request had not produced a response after 5 minutes, at which point the harness' HTTP client
-  gave up (`HeadersTimeoutError`; Ollama logged a 500 after 5 m 1 s). The machine was heavily shared at the time, so this says more about CPU availability than about the gateway.
-- A second attempt (with Ollama un-niced and on three CPUs) was queued behind other work on the heavy-job lock and cancelled at the project cut-off. Ollama and its model files were stopped/deleted.
+== top functions (self time) ==
+ 30.4%    33969 ms  (garbage collector)  (native):0
+ 25.5%    28490 ms  (idle)  (native):0
+  4.7%     5249 ms  writev  (native):0
+  1.6%     1779 ms  runMicrotasks  (native):0
+  1.5%     1722 ms  (program)  (native):0
+  1.5%     1660 ms  writeUtf8String  (native):0
+  1.3%     1501 ms  is  node_modules/drizzle-orm/entity.js:3
+  0.9%     1010 ms  (anonymous)  node_modules/drizzle-orm/sql/sql.js:83
+  0.9%      979 ms  NodeError  node:internal/errors:466
+  0.5%      575 ms  buildQueryFromSourceParams  node_modules/drizzle-orm/sql/sql.js:70
+  0.5%      524 ms  (anonymous)  (native):0
+  0.4%      419 ms  _parse  node_modules/zod/v3/types.js:1934
+  0.4%      417 ms  Command  node_modules/ioredis/built/Command.js:37
+  0.4%      416 ms  (anonymous)  node_modules/ioredis/built/utils/Commander.js:74
+  0.3%      372 ms  sendCommand  node_modules/ioredis/built/Redis.js:338
+  0.3%      344 ms  writevGeneric  node:internal/stream_base_commons:121
+  0.3%      340 ms  processTicksAndRejections  node:internal/process/task_queues:72
+  0.3%      328 ms  readJson  dist/providers/base.js:101
+  0.3%      321 ms  set natives  (native):0
+  0.3%      317 ms  setHeader  node:_http_outgoing:697
+  0.3%      316 ms  DOMException  node:internal/per_context/domexception:52
+  0.3%      314 ms  deprecate  node:internal/util:149
+  0.3%      314 ms  chat  dist/providers/openai.js:100
+  0.3%      313 ms  buildInsertQuery  node_modules/drizzle-orm/pg-core/dialect.js:356
+  0.3%      311 ms  __name  node:internal/deps/undici/undici:4
+  0.3%      288 ms  cloneQueryConfig  node_modules/pg/lib/utils.js:171
+  0.3%      287 ms  _storeHeader  node:_http_outgoing:454
+  0.2%      245 ms  emit  node:events:465
+  0.2%      243 ms  _parse  node_modules/secure-json-parse/index.js:17
+  0.2%      237 ms  (anonymous)  dist/routes/completions.js:26
 
-Nothing in this document depends on the real-model run. To run it yourself: download the Ollama tarball, then `flock ... benchmarks/run-ollama.sh <ollama-dir>` (see the header comment of the script).
+== top files/packages ==
+ 66.7%    74570 ms  (native)
+  5.4%     6010 ms  node:internal/deps/undici/undici
+  4.2%     4714 ms  node_modules/drizzle-orm
+  3.0%     3366 ms  node_modules/ioredis
+  1.5%     1659 ms  node:internal/webstreams/readablestream
+  1.3%     1419 ms  node_modules/fastify
+  1.2%     1291 ms  node_modules/zod
+  1.1%     1178 ms  node:internal/errors
+  0.8%      864 ms  node:internal/stream_base_commons
+  0.7%      818 ms  node:_http_outgoing
+  0.7%      790 ms  node:internal/streams/readable
+  0.7%      771 ms  node:events
+  0.7%      735 ms  node_modules/pg
+  0.6%      622 ms  dist/services/router.js
+  0.5%      590 ms  node:internal/process/task_queues
+  0.5%      557 ms  node:_http_server
+  0.5%      515 ms  dist/providers/base.js
+  0.4%      487 ms  node_modules/prom-client
+  0.4%      478 ms  node:net
+  0.4%      456 ms  node_modules/helmet
+  0.4%      418 ms  node:internal/perf/observe
+  0.4%      406 ms  node_modules/pg-pool
+  0.4%      402 ms  node_modules/pg-protocol
+  0.4%      392 ms  node:internal/streams/writable
+  0.3%      379 ms  dist/providers/openai.js
+  0.3%      357 ms  node:internal/util
+  0.3%      341 ms  node:internal/abort_controller
+  0.3%      332 ms  dist/services/cost-tracker.js
+  0.3%      316 ms  node:internal/per_context/domexception
+  0.3%      288 ms  dist/routes/http.js
 
-## Real upstream smoke test
+```
 
-One real call (the cap set by the owner, to protect scarce credits) was made through the gateway to OpenRouter's OpenAI-compatible API (`https://openrouter.ai/api/v1`, OpenAI adapter, model
-`~deepseek/deepseek-v4-flash-latest` - the model the owner's portfolio project uses - `max_tokens: 32`, `reasoning: {effort: "low", exclude: true}`, non-streaming). The provider credential was supplied through
-the admin API into an ephemeral database; it is not stored in the repository, results or logs.
-
-**Result: inconclusive.** The gateway answered **HTTP 503 `all_providers_failed` after 4.7 s** (`benchmarks/results/openrouter-smoke.json`). That means the upstream replied with a _retryable_ failure
-(429, 5xx, 408, or 401/402/403/404 which the gateway maps to retryable 502) and the only candidate was exhausted; the gateway's client-facing error deliberately does not carry the upstream status, and the
-ephemeral gateway logs were not kept, so the exact upstream status was **not recorded**. No tokens were billed or returned (`usage: null`). The owner's cap on real calls was reached, so the call was not
-repeated and no streaming call was made. This is a gap worth noting in its own right: `AllProvidersFailedError` keeps the cause internally but nothing exposes it to the operator except the server log.
-The mock-upstream results above, not this call, are the evidence for gateway behaviour.
+Compressed raw profile: [profile-20261014.tar.gz](../benchmarks/results/profile-20261014.tar.gz). Profiling changes performance and its throughput numbers are not the capacity headline.
 
 ## Reproducing
 
-See [../benchmarks/README.md](../benchmarks/README.md). In short: `npm run build`, `(cd benchmarks && npm install)`, `benchmarks/run-all.sh A|B|C|D|F`, `node benchmarks/summarize.mjs`.
-`k6` is not installed on the machine, so the repository's `tests/load/k6-*.js` scripts were **not** run; autocannon covers the same ground (baseline, stress, failover).
+| Block       | Label              | Started UTC          | Finished UTC         | Exit status |
+| ----------- | ------------------ | -------------------- | -------------------- | ----------- |
+| A           | 20261014           | 2026-10-14T10:52:46Z | 2026-10-14T11:01:16Z | 0           |
+| R           | 20261014           | 2026-10-14T11:01:16Z | 2026-10-14T11:06:12Z | 2           |
+| S           | 20261014-sustained | 2026-10-14T11:06:12Z | 2026-10-14T11:16:54Z | 0           |
+| B           | 20261014           | 2026-10-14T11:16:54Z | 2026-10-14T11:17:28Z | 0           |
+| C           | 20261014           | 2026-10-14T11:17:28Z | 2026-10-14T11:20:34Z | 0           |
+| D           | 20261014           | 2026-10-14T11:20:34Z | 2026-10-14T11:22:35Z | 1           |
+| D-artifacts | 20261014           | 2026-10-14T11:49:47Z | 2026-10-14T11:49:47Z | 0           |
+| K           | 20261014           | 2026-10-14T11:22:35Z | 2026-10-14T11:52:36Z | 0           |
+| ollama      | 20261014           | 2026-10-14T11:52:36Z | 2026-10-14T11:57:01Z | 0           |
+| R-recovery  | 20261014-recovery  | 2026-10-14T11:57:01Z | 2026-10-14T12:01:57Z | 0           |
 
-## Limitations
+The initial repeat block saved both results before a live-script editing error affected final bookkeeping. It was rerun under a recovery label. The profile was captured successfully but initially unreadable to the host user because Docker wrote it as root; ownership and post-processing were corrected. Original failure records are retained. Numerical or functional failures in benchmark data are reported independently from shell exit status.
 
-- Single machine, loopback networking (no real network latency, no TLS, no ingress hop). The load generator, mock, Redis and Postgres share the host's memory bandwidth and L3 with the gateway.
-- One physical core (two hyper-threads) for the gateway, comparable to the chart's 1-CPU limit; the mock and load generator share a physical core with each other.
-- The mock is faster and more regular than a real provider; real providers add jitter and slow tails that the failover, timeout and LB logic would react to.
-- 15 s measurement windows; p99.9 and beyond are not reported. The sliding-window rate limiter behaves differently over a 60 s horizon, which matters for the throughput results (see below).
-- No TLS, no OpenTelemetry (disabled by default), `LOG_LEVEL=warn`: logging cost at `info` is not included.
-- One run per configuration (no confidence intervals) because of the shared-machine constraint; compare the baseline and after runs as order-of-magnitude, not as third-significant-digit, differences.
+```bash
+npm ci && npm run build
+(cd benchmarks && npm ci)
+gateway_bench_label=$(date -u +%Y%m%dT%H%M%SZ)
+BENCH_LABEL="$gateway_bench_label" \
+  GW_CPUS=2,3 MOCK_CPUS=4 LOAD_CPUS=5 OLLAMA_CPUS=4,5 \
+  OLLAMA_N=20 GATEWAY_BENCH_OLLAMA_DIR=/path/to/task-owned/ollama \
+  benchmarks/rebenchmark.sh
+node benchmarks/summarize.mjs "$gateway_bench_label" "$gateway_bench_label-sustained"
+```
+
+Requires Node 22, Docker, k6, and a dedicated extracted Ollama installation. Use the same shell variable for the result label when generating tables. The report renderer also requires correspondingly labelled hardware snapshots and test logs. Generate the dated report with `node benchmarks/report.mjs <label>`; add `--current` only when promoting that completed run to `docs/benchmarks.md`. Generate figures with `python benchmarks/plot.py <label>` in an environment with matplotlib. The [artifact index](../benchmarks/results/README.md) distinguishes current raw measurements from historical files. The local Node and k6 installations are under `~/.local/share/gateway-benchmark/`; add their bin directories to PATH. Ollama's task-owned model directory and benchmark containers are removed after use. Gateway source is unchanged; harness fixes cover transport-error accounting, complete burst accounting, Anthropic content-frame parsing, profiling flags/ownership, labelled outputs, and verification of k6 provider updates.
+
+Historical 2026-10-04 figures remain in [the archived report](archive/benchmarks-20261004.md). The CPU, available resources, code, and software versions differ, so this re-run is not a controlled causal before/after experiment. No cloud, TLS, ingress, multi-replica, or NPU performance claim is made.

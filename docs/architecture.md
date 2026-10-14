@@ -93,7 +93,7 @@ sequenceDiagram
     opt cache eligible (temperature=0, seed set, no tools, not stream)
         RT->>R: GET gw:cache:{sha256(canonical request)}
         alt HIT
-            RT->>D: INSERT request_logs (cache_hit=true, cost 0)
+            RT->>RT: enqueue request log (cache_hit=true, cost 0)
             RT-->>C: 200 + X-Gateway-Cache-Status: HIT
         end
     end
@@ -115,16 +115,14 @@ sequenceDiagram
         end
     end
     RT->>R: INCRBYFLOAT spend + EXPIRE
-    RT->>D: INSERT request_logs
+    RT->>RT: enqueue request log (background INSERT)
     RT->>R: SET cache entry (if eligible)
     RT-->>C: 200 + X-Gateway-* + X-RateLimit-*
 ```
 
 Notes that matter when reasoning about latency:
 
-- The request-log insert (`CostTracker.recordRequest`) is **awaited inside the request path**
-  unless noted otherwise in [benchmarks.md](./benchmarks.md); a slow or unreachable PostgreSQL
-  therefore delays responses.
+- `CostTracker.enqueueRequest` puts the insert on a bounded 1,000-write background queue. Responses do not await the PostgreSQL insert; overflow discards audit rows. The October 14 stress run observes **201,051 drops** ([benchmarks.md](./benchmarks.md#full-k6-schedules)).
 - Auth, rate limiting, breaker, spend and cache each add one Redis round trip; ioredis
   auto-pipelining (`enableAutoPipelining` in `src/database/redis.ts`) coalesces concurrent commands.
 
@@ -169,7 +167,7 @@ Properties (all verified in code):
   includes the upstream's time to first frame plus gateway overhead.
 - **Client disconnect** aborts the upstream request: `clientAbortSignal` (`src/routes/http.ts`) is
   an `AbortController` fired on the raw socket `close` event when the response has not finished;
-  adapters compose it with their timeout via `AbortSignal.any` (`BaseProvider.upstreamFetch`).
+  adapters compose it with their timeout via `AbortSignal.any` (`BaseProvider.upstreamFetch`). In the latest 40-client tests upstream work drains in 71 ms for streams and 65 ms for non-streaming, while the in-flight gauge leaks +40 per case.
 - **Accounting** (`finally` block of the generator) runs on success, error and client abort. Prompt
   tokens are estimated up-front; completion tokens are estimated at ~chars/4 per delta until an
   authoritative usage chunk arrives, which then wins.
@@ -253,8 +251,8 @@ them: use `volatile-lru` (see [deployment.md](./deployment.md)). A Redis flush r
 
 The verified behaviours are summarised here; the experiments are in [benchmarks.md](./benchmarks.md#dependency-outages).
 
-| Dependency down | Behaviour                                                                                                                                                                                                                                                                                                                                                                                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Upstream 5xx    | Fail over to next candidate; breaker opens after `CB_FAILURE_THRESHOLD` failures.                                                                                                                                                                                                                                                                                                                                      |
-| Redis           | **Measured: requests hang or fail.** With Redis stopped, 8 probe requests produced 3 HTTP 500s and 5 requests that had not answered after 20 s (ioredis queues commands while reconnecting and the rate limiter awaits one on every request). Recovery took ~2.8 s after Redis returned. The breaker/LB/cache layers degrade, but the rate limiter is mandatory ([benchmarks.md](./benchmarks.md#dependency-outages)). |
-| PostgreSQL      | **Measured: no impact while the database refuses connections.** Cached auth keeps working and the failing log insert is swallowed (8/8 requests 200, p50 53 ms; streaming also fine). A blackholed or very slow database would delay responses while the insert was awaited (not measured; the insert is now off the request path).                                                                                    |
+| Dependency down | Behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Upstream 5xx    | Fail over to next candidate; breaker opens after `CB_FAILURE_THRESHOLD` failures.                                                                                                                                                                                                                                                                                                                                                                                |
+| Redis           | **Measured: requests hang or fail.** With Redis stopped, 8 probe requests produced 1 HTTP 500 and 7 requests that reached their 20-second client deadline (ioredis queues commands while reconnecting and the rate limiter awaits one on every request). The first successful recovery probe arrived 1.82 s after Redis restarted. The breaker/LB/cache layers degrade, but the rate limiter is mandatory ([benchmarks.md](./benchmarks.md#dependency-outages)). |
+| PostgreSQL      | **Measured: cached-auth requests succeed while the database refuses connections.** Non-streaming 8/8 HTTP 200, p50 29 ms; streams 3/3 succeed, TTFB p50 27.47 ms. Audit inserts run in the background. Cold-auth availability, blackholed connections, and durable logging during the outage remain unverified.                                                                                                                                                  |

@@ -1,0 +1,584 @@
+{
+  "meta": {
+    "date": "2026-10-14T11:54:48.765Z",
+    "node": "v22.14.0",
+    "host": {
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "cpus": 6,
+      "totalMemMB": 8940
+    },
+    "autocannon": "8.0.0"
+  },
+  "model": "qwen2.5:0.5b",
+  "backend": "gpu",
+  "runs": {
+    "stream_direct_c1": {
+      "n": 20,
+      "concurrency": 1,
+      "errors": 0,
+      "ttftMs": {
+        "n": 20,
+        "mean": 22.89,
+        "p50": 22.14,
+        "p90": 29.79,
+        "p95": 31.02,
+        "p99": 34.23,
+        "max": 34.23
+      },
+      "ttfbMs": {
+        "n": 20,
+        "mean": 22.86,
+        "p50": 22.11,
+        "p90": 29.77,
+        "p95": 31.01,
+        "p99": 34.21,
+        "max": 34.21
+      },
+      "totalMs": {
+        "n": 20,
+        "mean": 348.16,
+        "p50": 340.8,
+        "p90": 398.44,
+        "p95": 398.56,
+        "p99": 404.06,
+        "max": 404.06
+      },
+      "decodeTokensPerSec": {
+        "n": 20,
+        "mean": 198.06,
+        "p50": 200.21,
+        "p90": 218.46,
+        "p95": 219.1,
+        "p99": 221.03,
+        "max": 221.03
+      },
+      "completionTokens": {
+        "n": 20,
+        "mean": 64,
+        "p50": 64,
+        "p90": 64,
+        "p95": 64,
+        "p99": 64,
+        "max": 64
+      }
+    },
+    "stream_gateway_c1": {
+      "n": 20,
+      "concurrency": 1,
+      "errors": 0,
+      "ttftMs": {
+        "n": 20,
+        "mean": 28.41,
+        "p50": 28.17,
+        "p90": 36.2,
+        "p95": 36.76,
+        "p99": 43.23,
+        "max": 43.23
+      },
+      "ttfbMs": {
+        "n": 20,
+        "mean": 28.39,
+        "p50": 28.15,
+        "p90": 36.18,
+        "p95": 36.73,
+        "p99": 43.22,
+        "max": 43.22
+      },
+      "totalMs": {
+        "n": 20,
+        "mean": 337.97,
+        "p50": 323.63,
+        "p90": 376.62,
+        "p95": 402.86,
+        "p99": 433.52,
+        "max": 433.52
+      },
+      "decodeTokensPerSec": {
+        "n": 20,
+        "mean": 208.49,
+        "p50": 212.8,
+        "p90": 224.78,
+        "p95": 228.42,
+        "p99": 231,
+        "max": 231
+      },
+      "completionTokens": {
+        "n": 20,
+        "mean": 64,
+        "p50": 64,
+        "p90": 64,
+        "p95": 64,
+        "p99": 64,
+        "max": 64
+      }
+    },
+    "stream_direct_c2": {
+      "n": 20,
+      "concurrency": 2,
+      "errors": 0,
+      "ttftMs": {
+        "n": 20,
+        "mean": 27.42,
+        "p50": 26.45,
+        "p90": 34.09,
+        "p95": 38.22,
+        "p99": 40,
+        "max": 40
+      },
+      "ttfbMs": {
+        "n": 20,
+        "mean": 27.41,
+        "p50": 26.45,
+        "p90": 34.09,
+        "p95": 38.2,
+        "p99": 39.99,
+        "max": 39.99
+      },
+      "totalMs": {
+        "n": 20,
+        "mean": 402.04,
+        "p50": 372.29,
+        "p90": 480.87,
+        "p95": 505.02,
+        "p99": 505.8,
+        "max": 505.8
+      },
+      "decodeTokensPerSec": {
+        "n": 20,
+        "mean": 174.36,
+        "p50": 179.1,
+        "p90": 198.29,
+        "p95": 198.76,
+        "p99": 199.02,
+        "max": 199.02
+      },
+      "completionTokens": {
+        "n": 20,
+        "mean": 64,
+        "p50": 64,
+        "p90": 64,
+        "p95": 64,
+        "p99": 64,
+        "max": 64
+      }
+    },
+    "stream_gateway_c2": {
+      "n": 20,
+      "concurrency": 2,
+      "errors": 0,
+      "ttftMs": {
+        "n": 20,
+        "mean": 33.98,
+        "p50": 34.04,
+        "p90": 44.83,
+        "p95": 45.97,
+        "p99": 47.1,
+        "max": 47.1
+      },
+      "ttfbMs": {
+        "n": 20,
+        "mean": 33.96,
+        "p50": 34.02,
+        "p90": 44.83,
+        "p95": 45.96,
+        "p99": 47.09,
+        "max": 47.09
+      },
+      "totalMs": {
+        "n": 20,
+        "mean": 360.69,
+        "p50": 358.31,
+        "p90": 380.7,
+        "p95": 384.01,
+        "p99": 384.25,
+        "max": 384.25
+      },
+      "decodeTokensPerSec": {
+        "n": 20,
+        "mean": 196.14,
+        "p50": 196.43,
+        "p90": 203.03,
+        "p95": 206.22,
+        "p99": 207.05,
+        "max": 207.05
+      },
+      "completionTokens": {
+        "n": 20,
+        "mean": 64,
+        "p50": 64,
+        "p90": 64,
+        "p95": 64,
+        "p99": 64,
+        "max": 64
+      }
+    },
+    "nonstream_direct": {
+      "n": 20,
+      "latencyMs": {
+        "n": 20,
+        "mean": 339.58,
+        "p50": 321.51,
+        "p90": 397.73,
+        "p95": 397.74,
+        "p99": 432.38,
+        "max": 432.38
+      },
+      "usages": [
+        {
+          "prompt_tokens": 45,
+          "prompt_tokens_details": {
+            "cached_tokens": 44
+          },
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "prompt_tokens_details": {
+            "cached_tokens": 44
+          },
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "prompt_tokens_details": {
+            "cached_tokens": 44
+          },
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "prompt_tokens_details": {
+            "cached_tokens": 44
+          },
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "prompt_tokens_details": {
+            "cached_tokens": 44
+          },
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "prompt_tokens_details": {
+            "cached_tokens": 44
+          },
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "prompt_tokens_details": {
+            "cached_tokens": 44
+          },
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "prompt_tokens_details": {
+            "cached_tokens": 44
+          },
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "prompt_tokens_details": {
+            "cached_tokens": 44
+          },
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "prompt_tokens_details": {
+            "cached_tokens": 44
+          },
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 46,
+          "prompt_tokens_details": {
+            "cached_tokens": 45
+          },
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "prompt_tokens_details": {
+            "cached_tokens": 45
+          },
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "prompt_tokens_details": {
+            "cached_tokens": 45
+          },
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "prompt_tokens_details": {
+            "cached_tokens": 45
+          },
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "prompt_tokens_details": {
+            "cached_tokens": 45
+          },
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "prompt_tokens_details": {
+            "cached_tokens": 45
+          },
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "prompt_tokens_details": {
+            "cached_tokens": 45
+          },
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "prompt_tokens_details": {
+            "cached_tokens": 45
+          },
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "prompt_tokens_details": {
+            "cached_tokens": 45
+          },
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "prompt_tokens_details": {
+            "cached_tokens": 45
+          },
+          "completion_tokens": 64,
+          "total_tokens": 110
+        }
+      ]
+    },
+    "nonstream_gateway": {
+      "n": 20,
+      "latencyMs": {
+        "n": 20,
+        "mean": 312.18,
+        "p50": 306.18,
+        "p90": 330.34,
+        "p95": 338.48,
+        "p99": 346.53,
+        "max": 346.53
+      },
+      "usages": [
+        {
+          "prompt_tokens": 45,
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 45,
+          "completion_tokens": 64,
+          "total_tokens": 109
+        },
+        {
+          "prompt_tokens": 46,
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "completion_tokens": 64,
+          "total_tokens": 110
+        },
+        {
+          "prompt_tokens": 46,
+          "completion_tokens": 64,
+          "total_tokens": 110
+        }
+      ]
+    }
+  },
+  "modelLoadAndFirstRequestMs": 53222,
+  "accounting": {
+    "pairs": [
+      {
+        "variant": 200,
+        "direct": {
+          "prompt_tokens": 47,
+          "prompt_tokens_details": {
+            "cached_tokens": 39
+          },
+          "completion_tokens": 64,
+          "total_tokens": 111
+        },
+        "gateway": {
+          "prompt_tokens": 47,
+          "completion_tokens": 64,
+          "total_tokens": 111
+        },
+        "sameTextByLength": true
+      },
+      {
+        "variant": 201,
+        "direct": {
+          "prompt_tokens": 47,
+          "prompt_tokens_details": {
+            "cached_tokens": 40
+          },
+          "completion_tokens": 64,
+          "total_tokens": 111
+        },
+        "gateway": {
+          "prompt_tokens": 47,
+          "completion_tokens": 64,
+          "total_tokens": 111
+        },
+        "sameTextByLength": true
+      },
+      {
+        "variant": 202,
+        "direct": {
+          "prompt_tokens": 47,
+          "prompt_tokens_details": {
+            "cached_tokens": 40
+          },
+          "completion_tokens": 64,
+          "total_tokens": 111
+        },
+        "gateway": {
+          "prompt_tokens": 47,
+          "completion_tokens": 64,
+          "total_tokens": 111
+        },
+        "sameTextByLength": true
+      },
+      {
+        "variant": 203,
+        "direct": {
+          "prompt_tokens": 47,
+          "prompt_tokens_details": {
+            "cached_tokens": 40
+          },
+          "completion_tokens": 64,
+          "total_tokens": 111
+        },
+        "gateway": {
+          "prompt_tokens": 47,
+          "completion_tokens": 64,
+          "total_tokens": 111
+        },
+        "sameTextByLength": true
+      }
+    ],
+    "requestLogRows": 65,
+    "streamUsageVsLog": "see logsVsClient",
+    "logsTotalPromptTokens": 2964,
+    "logsTotalCompletionTokens": 4160,
+    "logsCostUsdSum": 0.011284000000000002,
+    "nonStreamClientPrompt": 1098,
+    "nonStreamClientCompletion": 1536
+  }
+}

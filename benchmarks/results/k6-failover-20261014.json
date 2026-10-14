@@ -1,0 +1,161 @@
+{
+    "metrics": {
+        "data_sent": {
+            "count": 2740914,
+            "rate": 15182.270171930806
+        },
+        "control_errors": {
+            "passes": 0,
+            "fails": 2,
+            "thresholds": {
+                "rate==0": false
+            },
+            "value": 0
+        },
+        "http_req_duration{expected_response:true}": {
+            "max": 65.087013,
+            "p(90)": 34.727285300000005,
+            "p(95)": 37.237259299999984,
+            "avg": 30.30169345646711,
+            "min": 8.025063,
+            "med": 29.3571795
+        },
+        "http_req_waiting": {
+            "p(95)": 37.1319452,
+            "avg": 30.206278177559415,
+            "min": 7.927564,
+            "med": 29.266164,
+            "max": 64.932203,
+            "p(90)": 34.6162244
+        },
+        "data_received": {
+            "count": 10554345,
+            "rate": 58461.85516136845
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 8752,
+            "value": 0
+        },
+        "http_req_duration": {
+            "min": 8.025063,
+            "med": 29.3571795,
+            "max": 65.087013,
+            "p(90)": 34.727285300000005,
+            "p(95)": 37.237259299999984,
+            "avg": 30.30169345646711
+        },
+        "server_errors": {
+            "passes": 0,
+            "fails": 8750,
+            "thresholds": {
+                "rate<0.001": false
+            },
+            "value": 0
+        },
+        "http_req_connecting": {
+            "min": 0,
+            "med": 0,
+            "max": 12.580792,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.030853281649908592
+        },
+        "http_req_duration{scenario:load}": {
+            "med": 29.358410499999998,
+            "max": 65.087013,
+            "p(90)": 34.7275768,
+            "p(95)": 37.238884699999986,
+            "avg": 30.305709129828582,
+            "min": 22.901196,
+            "thresholds": {
+                "p(95)<1000": false
+            }
+        },
+        "http_reqs": {
+            "count": 8752,
+            "rate": 48.47843768346559
+        },
+        "vus_max": {
+            "value": 52,
+            "min": 52,
+            "max": 52
+        },
+        "iteration_duration": {
+            "min": 8.583014,
+            "med": 1030.063821,
+            "max": 1066.696976,
+            "p(90)": 1035.4388583,
+            "p(95)": 1038.0806834999999,
+            "avg": 1030.7978061877277
+        },
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0
+        },
+        "checks": {
+            "passes": 8752,
+            "fails": 0,
+            "value": 1
+        },
+        "iterations": {
+            "count": 8752,
+            "rate": 48.47843768346559
+        },
+        "http_req_blocked": {
+            "avg": 0.03536594298446074,
+            "min": 0.000881,
+            "med": 0.003346,
+            "max": 12.717748,
+            "p(90)": 0.006611100000000005,
+            "p(95)": 0.00920149999999999
+        },
+        "vus": {
+            "value": 50,
+            "min": 50,
+            "max": 50
+        },
+        "http_req_sending": {
+            "avg": 0.04806574085923183,
+            "min": 0.003066,
+            "med": 0.009738,
+            "max": 2.41969,
+            "p(90)": 0.14031640000000012,
+            "p(95)": 0.30894304999999955
+        },
+        "http_req_receiving": {
+            "avg": 0.047349538048446174,
+            "min": 0.011231,
+            "med": 0.0342855,
+            "max": 1.438307,
+            "p(90)": 0.0785696,
+            "p(95)": 0.11031814999999998
+        }
+    },
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "no server error": {
+                    "name": "no server error",
+                    "path": "::no server error",
+                    "id": "a1f3113ea5fdb60d3f1dd8478ffb294b",
+                    "passes": 8750,
+                    "fails": 0
+                },
+                "provider state update succeeds": {
+                    "name": "provider state update succeeds",
+                    "path": "::provider state update succeeds",
+                    "id": "9302ecd80c9268038ad62a4c89bf1d35",
+                    "passes": 2,
+                    "fails": 0
+                }
+            }
+    }
+}

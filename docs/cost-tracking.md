@@ -32,12 +32,12 @@ Tool-call-only streams (no `content` deltas) estimate zero completion tokens unt
 
 ## Persisting and counting spend
 
-For every request the router calls, in order:
+For successful calls and stream accounting, the router records metrics and spend, then enqueues an audit write:
 
 1. `recordProviderMetrics` - Prometheus counters (`gateway_tokens_total`, `gateway_cost_usd_total`, durations).
 2. `addSpend(apiKeyId, cost)` - `INCRBYFLOAT gw:spend:{keyId}:{YYYY-MM}` then `EXPIRE` 40 days (skipped for cost <= 0;
    the month is the **UTC** calendar month).
-3. `recordRequest(...)` - `INSERT INTO request_logs` (errors are logged and swallowed).
+3. `enqueueRequest(...)` - puts the audit row on a bounded 1,000-write queue. The background worker performs `INSERT INTO request_logs`; errors are logged and swallowed, and overflow increments `gateway_request_logs_dropped_total`.
 
 Hence there are two ledgers that can disagree: Redis counters (used for budget enforcement) and PostgreSQL
 `request_logs` (audit, reports). `GET /admin/keys/{id}/usage` returns both (`monthToDateSpendUsd` from Redis, totals
@@ -61,7 +61,7 @@ Known properties - this is a soft limit:
   calls, and streams (completed or interrupted after the first byte). Requests that fail before producing a response -
   401, 403, 404, 422, 429 (rate limit/budget), and 503 `all_providers_failed` - are visible only in application logs
   and Prometheus (`gateway_http_requests_total`, `gateway_provider_errors_total`), never in `request_logs`
-  (`GatewayRouter.runFailover` throws before any `recordRequest` call).
+  (`GatewayRouter.runFailover` throws before any audit enqueue). Successful responses can also lose their audit rows when the queue fills: **201,051 drops** were observed during the latest 1,201,206-request stress run. This is an audit-ledger loss; it does not establish a corresponding loss in Redis spend accounting.
 
 ## Reporting
 
@@ -69,3 +69,7 @@ Known properties - this is a soft limit:
 - `monthly_usage` materialised view (per key per month: requests, tokens, cost) is refreshed hourly by the
   `refresh-usage` CronJob. No application code reads it; it exists for BI queries.
 - Prometheus: `gateway_cost_usd_total{provider,model}`, `gateway_tokens_total{provider,model,direction}`.
+
+## Latest accounting verification (2026-10-14)
+
+The local GPU-backed qwen2.5:0.5b run records 65 audit rows, 2,964 prompt tokens, 4,160 completion tokens, and $0.011284 at synthetic benchmark prices. No paid provider bill was incurred. Core usage matches in 4/4 deterministic direct/gateway pairs (47 prompt, 64 completion, 111 total tokens). Ollama's `prompt_tokens_details.cached_tokens` (39–40 in those pairs) is omitted from gateway usage, so detail preservation remains incomplete ([raw accounting](../benchmarks/results/ollama-main-20261014.json), [report](./benchmarks.md#gpu-backed-local-model)).

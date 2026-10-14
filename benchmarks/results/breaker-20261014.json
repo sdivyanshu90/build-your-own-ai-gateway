@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "date": "2026-10-14T11:17:24.476Z",
+    "node": "v22.14.0",
+    "host": {
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "cpus": 6,
+      "totalMemMB": 8940
+    },
+    "autocannon": "8.0.0"
+  },
+  "cbTimeoutMs": 5000,
+  "timeline": [
+    {
+      "tMs": 2,
+      "state": "CLOSED"
+    },
+    {
+      "tMs": 622,
+      "state": "OPEN"
+    },
+    {
+      "tMs": 5667,
+      "state": "HALF_OPEN"
+    },
+    {
+      "tMs": 5769,
+      "state": "CLOSED"
+    }
+  ],
+  "tOpenMs": 622,
+  "upstreamRequestsToAUntilOpen": 5,
+  "upstreamRequestsToAWhileOpen": 0,
+  "healedAtMs": 3657,
+  "tHalfOpenMs": 5667,
+  "tClosedMs": 5769,
+  "openToHalfOpenMs": 5045,
+  "healToClosedMs": 2112,
+  "clientRequests": {
+    "total": 116,
+    "ok": 116
+  },
+  "clientSuccessRate": 1,
+  "pollIntervalMs": 100
+}

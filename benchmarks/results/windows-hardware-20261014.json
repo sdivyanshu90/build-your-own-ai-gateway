@@ -1,0 +1,25 @@
+{
+  "cpu": {
+    "Name": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics     ",
+    "NumberOfCores": 8,
+    "NumberOfLogicalProcessors": 16
+  },
+  "memory": {
+    "Capacity": 17179869184,
+    "Speed": 5600
+  },
+  "npu": [
+    {
+      "DeviceName": "NPU Compute Accelerator Device",
+      "DriverVersion": "32.0.203.329",
+      "DriverDate": "/Date(1744416000000)/"
+    }
+  ],
+  "capturedAt": "2026-10-14T11:03:25.011612+00:00",
+  "wslNpuDeviceExposed": false,
+  "wslConfig": {
+    "memory": "9GB",
+    "processors": 6,
+    "swap": "4GB"
+  }
+}

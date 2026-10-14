@@ -73,7 +73,7 @@ migrator images to GHCR, `helm upgrade --install --wait`, smoke test, rollback o
 
 CI history note: as delivered, the `quality` job failed on `prettier --check` (Helm templates are Go templates, not YAML - now in `.prettierignore`), the `unit` job failed the
 95/95/90/95 coverage gate (the suite measured 35.67% lines; now a documented ratchet in `vitest.config.ts`), and `audit` fails on advisories that need major upgrades
-(see [design-decisions.md](./design-decisions.md#known-limitations-and-open-issues)). The integration suite took 187 s wall-clock (75 s of test time, the rest container start-up and module transform) on the shared 8-core dev machine on 2026-10-04.
+(see [design-decisions.md](./design-decisions.md#known-limitations-and-open-issues)). The latest integration/e2e/security run (2026-10-14, Node 22.14.0, six WSL logical CPUs) passes 66 tests in 9 files in 18.32 s using real PostgreSQL/Redis via testcontainers ([log](../benchmarks/results/integration-tests-20261014.txt)). It does not validate Kubernetes, TLS/ingress, or the production image deployment.
 
 ## Running the benchmark / load-test stack
 

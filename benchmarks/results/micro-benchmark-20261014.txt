@@ -1,0 +1,10 @@
+
+> ai-gateway@1.0.0 benchmark
+> tsx scripts/benchmark.ts
+
+AI gateway microbenchmarks
+
+cache key derivation             384493 ops/s      2600.8 ns/op
+LB candidate-set key            1007252 ops/s       992.8 ns/op
+
+Done.

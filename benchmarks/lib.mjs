@@ -255,7 +255,9 @@ export async function streamBench({ url, headers, body, n, concurrency, kind = '
         buf += dec.decode(value, { stream: true });
         if (
           firstTok === null &&
-          (kind === 'openai' ? /"content":"[^"]/.test(buf) : /"content":"[^"]/.test(buf))
+          (kind === 'openai'
+            ? /"content":"[^"]/.test(buf)
+            : /"type":"text_delta","text":"[^"]/.test(buf))
         )
           firstTok = performance.now() - t0;
         if (buf.includes('[DONE]') || buf.includes('message_stop')) sawDone = true; // OpenAI sentinel / Anthropic terminal event

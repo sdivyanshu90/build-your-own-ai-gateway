@@ -132,4 +132,4 @@ Everything in this file is read at boot.
 
 ## Benchmark-harness variables
 
-`BENCH_*`, `MOCK_*`, `GW_CPUS`, `GW_PROFILE_DIR`, `MOCK_CPUS`, `LOAD_CPUS` are read only by `benchmarks/` (see [benchmarks.md](./benchmarks.md#reproducing)).
+`BENCH_*` (including `BENCH_SUSTAINED_DURATION_S`), `MOCK_*`, `GW_CPUS`, `GW_PROFILE_DIR`, `MOCK_CPUS`, `LOAD_CPUS`, `OLLAMA_CPUS`, `OLLAMA_N`, `OLLAMA_MODEL`, and `GATEWAY_BENCH_OLLAMA_DIR` are read only by `benchmarks/` (see [benchmarks.md](./benchmarks.md#reproducing)).

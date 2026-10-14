@@ -154,7 +154,7 @@ See [testing.md](./testing.md).
 ## `benchmarks/`
 
 The reproducible load harness: `mock-upstream.mjs`, `seed.mjs`, `bench.mjs`, `run-all.sh`,
-`run-gateway.sh`, `docker-compose.deps.yml`. See [benchmarks.md](./benchmarks.md).
+`run-gateway.sh`, `docker-compose.deps.yml`. `rebenchmark.sh` orchestrates the complete labelled mock/k6/local-model run; `monitor.mjs` captures host and gateway samples, `run-ollama.sh` records actual model placement, `report.mjs` renders both current and dated reports, and `plot.py` generates the figures. See [benchmarks.md](./benchmarks.md).
 
 ## Deployment artefacts
 

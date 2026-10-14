@@ -1,0 +1,69 @@
+{
+  "meta": {
+    "date": "2026-10-14T11:15:31.391Z",
+    "node": "v22.14.0",
+    "host": {
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "cpus": 6,
+      "totalMemMB": 8940
+    },
+    "autocannon": "8.0.0"
+  },
+  "mockLatencyMs": 20,
+  "steps": [
+    {
+      "connections": 64,
+      "durationS": 75,
+      "rps": 957,
+      "requests": 71754,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 66.37,
+        "p50": 65,
+        "p90": 81,
+        "p97_5": 90,
+        "p99": 95,
+        "p99_9": 116,
+        "max": 260
+      },
+      "loadgenCpuPct": 8,
+      "gatewayContainer": {
+        "samples": 26,
+        "maxMemMiB": 122.6,
+        "avgCpuPct": 119.3,
+        "maxCpuPct": 128.87
+      },
+      "mockCpuPct": 7,
+      "redisCommandStats": {
+        "mget": {
+          "calls": 73873,
+          "usecPerCall": 0.42
+        },
+        "expire": {
+          "calls": 147687,
+          "usecPerCall": 0.95
+        },
+        "evalsha": {
+          "calls": 221560,
+          "usecPerCall": 7.75
+        },
+        "incrbyfloat": {
+          "calls": 73814,
+          "usecPerCall": 1.65
+        },
+        "set": {
+          "calls": 73814,
+          "usecPerCall": 0.87
+        },
+        "get": {
+          "calls": 295433,
+          "usecPerCall": 0.35
+        }
+      },
+      "pgCommitsDuringStep": 73438
+    }
+  ],
+  "maxRps": 957
+}

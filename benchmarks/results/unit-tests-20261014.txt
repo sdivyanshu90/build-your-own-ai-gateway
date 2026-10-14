@@ -1,0 +1,16 @@
+
+> ai-gateway@1.0.0 test
+> vitest run --config vitest.config.ts --maxWorkers=2
+
+
+ RUN  v5.0.3 /home/somu/build-your-own-ai-gateway
+
+
+ Test Files  20 passed (20)
+      Tests  140 passed (140)
+   Start at  10:48:28
+   Duration  3.48s (tests 51%, import 35%, transform 10%, worker 3%, setup 1%)
+
+    Isolate  20 workers spawned · ~84ms startup each (spawn + environment, per file)
+             at least ~753ms faster with isolate: false — reuses workers across files instead of one per file
+

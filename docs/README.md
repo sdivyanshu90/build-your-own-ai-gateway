@@ -3,6 +3,8 @@
 Start here. The documents are written to be read in order the first time and used as a reference afterwards. Every behavioural claim cites the file that implements it;
 every number comes from a run recorded in `benchmarks/results/` ([benchmarks.md](./benchmarks.md)).
 
+Current measurements: [full benchmark, 2026-10-14](./benchmarks.md), including the complete k6 schedules and a GPU-backed real model. The [dated snapshot](./benchmarks-20261014.md) and [October 4 archive](./archive/benchmarks-20261004.md) preserve run history.
+
 ## Suggested reading order
 
 | #   | Document                                                         | Read it to learn                                                                                                      |

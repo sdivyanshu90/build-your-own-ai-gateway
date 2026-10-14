@@ -18,23 +18,24 @@ client --> gateway --> OpenAI | Anthropic | Gemini | Cohere | Mistral
 
 ## Measured performance (headline)
 
-Measured 2026-10-04 on a laptop (gateway pinned to one physical core, local mock upstream with 20 ms latency; baseline code before the performance fixes described in [docs/audit.md](./docs/audit.md)):
+Measured 2026-10-14 on a Ryzen 7 8845HS under WSL2 (gateway on one WSL-reported physical core, local mock upstream with 20 ms latency):
 
-| Measurement                                                 | Result                                                 |
-| ----------------------------------------------------------- | ------------------------------------------------------ |
-| Overhead at c=1 (p50, non-streaming), baseline code         | +24 ms (OpenAI adapter), +15 ms (Anthropic adapter)    |
-| Streaming TTFB overhead at c=1 (p50)                        | +14 ms                                                 |
-| Max throughput, baseline code, rate limiter on, one hot key | 61 rps (collapses to 35-45 rps as the window fills)    |
-| Same, rate limiter disabled (c=64)                          | 479 rps, p50 126 ms, gateway CPU 119% of 200%          |
-| Redis Lua cost per call, limiter on vs off                  | 2.9-6.1 ms vs 0.014 ms                                 |
-| Rate-limiter exactness under 100-200 way burst              | exact (60/60, 100/100, 600/600 admitted)               |
-| Gateway memory (container) idle / under load                | 109 MiB / 110 MiB                                      |
-| Redis down                                                  | 3 of 8 requests HTTP 500, 5 of 8 unanswered after 20 s |
-| PostgreSQL down (connection refused)                        | no impact (8/8 OK)                                     |
+| Measurement                                                       | Result                                                                               |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Non-streaming p50 overhead at c=1, median across five paired runs | +6 ms (OpenAI and Anthropic adapters)                                                |
+| Streaming TTFB p50 overhead at c=1                                | +5.39 ms                                                                             |
+| Limiter-enabled throughput, 75-second sweep, one hot key          | 1,016 rps at c=128; p50 124 ms, p99 168 ms, zero request errors                      |
+| Limiter on / off at c=64, 75 seconds each                         | 888 / 957 rps                                                                        |
+| RPM burst correctness                                             | Exactly 60/60, 100/100, 600/600 admitted; all remaining requests HTTP 429            |
+| Mock failover                                                     | 3,120/3,120 successful, including timeout and connection-reset cases                 |
+| Real GPU model                                                    | qwen2.5:0.5b, RTX 3050, 100% GPU placement; 20/20 real-model failovers successful    |
+| Complete k6 stress schedule                                       | 1,201,206 requests, zero HTTP failures, p95 464 ms; 201,051 audit-log drops observed |
+| Redis down                                                        | 1/8 HTTP 500; 7/8 reached the client 20-second deadline                              |
+| PostgreSQL down                                                   | 8/8 chat requests and 3/3 streams successful (connection-refusal test)               |
 
-The audit found the rate limiter's O(window) TPM summation to be the dominant cost; it was fixed afterwards (see "What the benchmark found" and the post-fix section for the re-measurement status).
+Remaining limits matter: peak stress loses audit entries, the in-flight gauge leaks on client aborts, and Redis loss stalls requests. A 109-second stress outlier coincides with a host-monitor pause and cannot be attributed precisely to gateway service time. The newer CPU and code differ from the earlier run, so the figures are not a controlled before/after comparison.
 
-Methodology, hardware, every table and the caveats: [docs/benchmarks.md](./docs/benchmarks.md). Reproduce with [benchmarks/](./benchmarks/README.md) (mock upstream, no provider spend).
+[Full report, plots, methodology, and raw artifacts](./docs/benchmarks.md). [Historical 2026-10-04 results](./docs/archive/benchmarks-20261004.md) remain available. Reproduce with [benchmarks/](./benchmarks/README.md), using mocks and a local GPU model without provider API spend.
 
 ## Quickstart
 
@@ -83,7 +84,8 @@ Response headers: `X-Gateway-Provider|Model|Latency-Ms|Cache-Status|Failover-Cou
 npm ci
 npm run dev                  # tsx watch (needs DATABASE_URL, REDIS_URL, ENCRYPTION_KEY, ADMIN_API_KEY)
 npm run typecheck && npm run lint && npm run format:check
-npm test                     # 137 unit tests + coverage ratchet
+npm test                     # 140 unit tests
+npm run test:coverage        # unit coverage + ratchet thresholds
 npm run test:integration     # 66 integration/e2e/security tests (Docker: testcontainers)
 npm run build
 ```

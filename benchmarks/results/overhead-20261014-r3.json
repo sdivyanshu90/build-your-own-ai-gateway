@@ -1,0 +1,207 @@
+{
+  "meta": {
+    "date": "2026-10-14T11:06:11.856Z",
+    "node": "v22.14.0",
+    "host": {
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "cpus": 6,
+      "totalMemMB": 8940
+    },
+    "autocannon": "8.0.0"
+  },
+  "mockLatencyMs": 20,
+  "runs": [
+    {
+      "adapter": "openai-adapter",
+      "connections": 1,
+      "direct": {
+        "connections": 1,
+        "durationS": 15,
+        "rps": 47,
+        "requests": 712,
+        "non2xx": 0,
+        "errors": 0,
+        "timeouts": 0,
+        "latencyMs": {
+          "mean": 20.44,
+          "p50": 20,
+          "p90": 21,
+          "p97_5": 21,
+          "p99": 22,
+          "p99_9": 25,
+          "max": 25
+        },
+        "loadgenCpuPct": 2
+      },
+      "gateway": {
+        "connections": 1,
+        "durationS": 15,
+        "rps": 37,
+        "requests": 553,
+        "non2xx": 0,
+        "errors": 0,
+        "timeouts": 0,
+        "latencyMs": {
+          "mean": 26.53,
+          "p50": 26,
+          "p90": 28,
+          "p97_5": 29,
+          "p99": 30,
+          "p99_9": 35,
+          "max": 35
+        },
+        "loadgenCpuPct": 2
+      },
+      "overheadMs": {
+        "p50": 6,
+        "p90": 7,
+        "p99": 8,
+        "mean": 6.09
+      }
+    },
+    {
+      "adapter": "anthropic-adapter",
+      "connections": 1,
+      "direct": {
+        "connections": 1,
+        "durationS": 15,
+        "rps": 48,
+        "requests": 714,
+        "non2xx": 0,
+        "errors": 0,
+        "timeouts": 0,
+        "latencyMs": {
+          "mean": 20.35,
+          "p50": 20,
+          "p90": 21,
+          "p97_5": 21,
+          "p99": 21,
+          "p99_9": 23,
+          "max": 23
+        },
+        "loadgenCpuPct": 2
+      },
+      "gateway": {
+        "connections": 1,
+        "durationS": 15,
+        "rps": 37,
+        "requests": 561,
+        "non2xx": 0,
+        "errors": 0,
+        "timeouts": 0,
+        "latencyMs": {
+          "mean": 26.14,
+          "p50": 26,
+          "p90": 27,
+          "p97_5": 30,
+          "p99": 32,
+          "p99_9": 36,
+          "max": 36
+        },
+        "loadgenCpuPct": 2
+      },
+      "overheadMs": {
+        "p50": 6,
+        "p90": 6,
+        "p99": 11,
+        "mean": 5.79
+      }
+    },
+    {
+      "adapter": "openai-adapter",
+      "connections": 16,
+      "direct": {
+        "connections": 16,
+        "durationS": 15,
+        "rps": 766,
+        "requests": 11495,
+        "non2xx": 0,
+        "errors": 0,
+        "timeouts": 0,
+        "latencyMs": {
+          "mean": 20.39,
+          "p50": 20,
+          "p90": 21,
+          "p97_5": 22,
+          "p99": 22,
+          "p99_9": 22,
+          "max": 24
+        },
+        "loadgenCpuPct": 4
+      },
+      "gateway": {
+        "connections": 16,
+        "durationS": 15,
+        "rps": 428,
+        "requests": 6423,
+        "non2xx": 0,
+        "errors": 0,
+        "timeouts": 0,
+        "latencyMs": {
+          "mean": 36.82,
+          "p50": 37,
+          "p90": 41,
+          "p97_5": 45,
+          "p99": 47,
+          "p99_9": 58,
+          "max": 59
+        },
+        "loadgenCpuPct": 5
+      },
+      "overheadMs": {
+        "p50": 17,
+        "p90": 20,
+        "p99": 25,
+        "mean": 16.43
+      }
+    },
+    {
+      "adapter": "anthropic-adapter",
+      "connections": 16,
+      "direct": {
+        "connections": 16,
+        "durationS": 15,
+        "rps": 768,
+        "requests": 11518,
+        "non2xx": 0,
+        "errors": 0,
+        "timeouts": 0,
+        "latencyMs": {
+          "mean": 20.36,
+          "p50": 20,
+          "p90": 21,
+          "p97_5": 21,
+          "p99": 22,
+          "p99_9": 24,
+          "max": 26
+        },
+        "loadgenCpuPct": 4
+      },
+      "gateway": {
+        "connections": 16,
+        "durationS": 15,
+        "rps": 427,
+        "requests": 6401,
+        "non2xx": 0,
+        "errors": 0,
+        "timeouts": 0,
+        "latencyMs": {
+          "mean": 36.98,
+          "p50": 37,
+          "p90": 41,
+          "p97_5": 46,
+          "p99": 49,
+          "p99_9": 57,
+          "max": 58
+        },
+        "loadgenCpuPct": 4
+      },
+      "overheadMs": {
+        "p50": 17,
+        "p90": 20,
+        "p99": 27,
+        "mean": 16.62
+      }
+    }
+  ]
+}

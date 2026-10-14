@@ -244,7 +244,8 @@ const phases = {
       console.log(
         `c=${c} rps=${r.rps} p50=${r.latencyMs.p50} p99=${r.latencyMs.p99} non2xx=${r.non2xx} gwCPU=${r.gatewayContainer.avgCpuPct}% gwMem=${r.gatewayContainer.maxMemMiB}MiB mockCPU=${r.mockCpuPct}%`,
       );
-      if (r.non2xx > r.requests * 0.01) {
+      // autocannon's errors already include its timeout count.
+      if (r.non2xx + r.errors > (r.requests + r.errors) * 0.01) {
         out.stoppedBecause = `errors >1% at c=${c}`;
         break;
       }
@@ -360,7 +361,7 @@ const phases = {
       r.rpmLimit = rpm;
       r.allowed = r.codes[200] ?? 0;
       r.rejected429 = r.codes[429] ?? 0;
-      r.exact = r.allowed === rpm;
+      r.exact = r.allowed === rpm && r.rejected429 === total - rpm;
       out.cases.push(r);
       console.log(`rpm=${rpm}: allowed=${r.allowed} 429=${r.rejected429} exact=${r.exact}`);
     }
