@@ -200,7 +200,7 @@ add(
   )}\n\nBaseline: 50 constant VUs, one-second sleeps. Stress: 0→50→200→500→500→200→50→0 over the complete 20-minute schedule. Failover: 50 constant VUs while the primary is disabled at 60 seconds and restored at 120 seconds; provider update success is checked and thresholded.\n\nAt least ${drops.toLocaleString('en-US')} audit queue drops were observed in the long stress phase. The bounded background logger protects response availability by discarding entries when its 1,000-write queue fills. Successful HTTP responses therefore do not imply complete audit logs. Client summary thresholds do not check audit completeness. The stress test maximum is ${fmt(k6.stress.metrics.http_req_duration.max / 1000)} seconds, coinciding with a ${fmt(maxMonitorGapSeconds)}-second gap between nominally 10-second host-monitor samples. This is consistent with a host/VM scheduling pause; gateway-specific attribution of that extreme tail is uncertain. The full stress mean rate includes the elapsed pause. Numeric p99 is absent from these legacy k6 summaries; the baseline's p99<500 ms threshold is still evaluated. Time-series snapshots: ${link(`monitor-${label}.jsonl`)}.`,
 );
 add(
-  `## GPU-backed local model\n\nModel: \`${local.model}\`; backend label: \`${local.backend}\`. ${table(
+  `## GPU-backed local model\n\nModel: \`${local.model}\`; backend label: \`${local.backend}\`.\n\n${table(
     ['Path', 'N', 'Concurrency', 'TTFT p50 ms', 'TTFT p99 ms', 'Decode tokens/s p50', 'Errors'],
     Object.entries(local.runs)
       .filter(([, r]) => r.ttftMs)

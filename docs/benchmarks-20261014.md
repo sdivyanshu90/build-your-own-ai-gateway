@@ -225,12 +225,14 @@ At least 201,051 audit queue drops were observed in the long stress phase. The b
 
 ## GPU-backed local model
 
-Model: `qwen2.5:0.5b`; backend label: `gpu`. | Path | N | Concurrency | TTFT p50 ms | TTFT p99 ms | Decode tokens/s p50 | Errors |
-| --- | --- | --- | --- | --- | --- | --- |
-| stream_direct_c1 | 20 | 1 | 22.14 | 34.23 | 200.21 | 0 |
-| stream_gateway_c1 | 20 | 1 | 28.17 | 43.23 | 212.8 | 0 |
-| stream_direct_c2 | 20 | 2 | 26.45 | 40 | 179.1 | 0 |
-| stream_gateway_c2 | 20 | 2 | 34.04 | 47.1 | 196.43 | 0 |
+Model: `qwen2.5:0.5b`; backend label: `gpu`.
+
+| Path              | N   | Concurrency | TTFT p50 ms | TTFT p99 ms | Decode tokens/s p50 | Errors |
+| ----------------- | --- | ----------- | ----------- | ----------- | ------------------- | ------ |
+| stream_direct_c1  | 20  | 1           | 22.14       | 34.23       | 200.21              | 0      |
+| stream_gateway_c1 | 20  | 1           | 28.17       | 43.23       | 212.8               | 0      |
+| stream_direct_c2  | 20  | 2           | 26.45       | 40          | 179.1               | 0      |
+| stream_gateway_c2 | 20  | 2           | 34.04       | 47.1        | 196.43              | 0      |
 
 | Non-streaming path | N   | p50 ms | p99 ms |
 | ------------------ | --- | ------ | ------ |
