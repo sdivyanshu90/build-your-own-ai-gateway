@@ -44,11 +44,10 @@ down → see Redis/DB runbooks. If all providers for a model are down → regist
 **Symptoms:** `/ready` reports `redis:false`; cache hit rate collapses; warn logs "Redis client error".
 
 **Degradation:** auth falls back to the DB; the cache treats every request as a miss; the circuit breaker fails open; the LB degrades to random. **The rate limiter does not degrade**: with Redis down
-some requests fail with 500 and others hang (measured: 3 x 500 and 5 requests unanswered after 20 s, out of 8) until Redis returns (~3 s after it is back). If the outage will last, set
-`RATE_LIMIT_ENABLED=false` and roll the deployment to restore service without limits.
+the latest eight probes produce one HTTP 500 and seven client deadlines at 20 seconds. The first successful recovery probe follows 1.82 seconds after Redis restart ([benchmark](./benchmarks.md#dependency-outages)). `RATE_LIMIT_ENABLED=false` bypasses the limiter if enforcement can be suspended; it does not establish bounded latency for all other Redis paths.
 
 **Mitigation:** restore/scale Redis. For `RedisMemoryHigh`, confirm `maxmemory-policy
-volatile-lru` and raise `maxmemory` or scale to Cluster. Cache/limiter keys carry TTLs, so memory
+volatile-lru` and raise `maxmemory` or scale the primary vertically. Redis Cluster requires changes to the multi-key Lua key scheme ([deployment.md](./deployment.md#redis-requirements)). Cache/limiter keys carry TTLs, so memory
 self-bounds once traffic normalises.
 
 **Recovery:** once `/ready` is green, hit rates and limiter accuracy recover automatically (no

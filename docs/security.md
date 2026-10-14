@@ -110,3 +110,7 @@ unauthenticated endpoints.
 - Kubernetes: `runAsNonRoot`, uid 65532, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, all capabilities dropped,
   `RuntimeDefault` seccomp (see `helm/ai-gateway/values.yaml`, `k8s/deployment.yaml`).
 - CI: `npm audit --audit-level=high`, Trivy image scan failing on CRITICAL (`.github/workflows/ci.yml`; the action is pinned to a commit SHA). Both pass as of 2026-10-05: 0 high/critical advisories, 0 fixable CRITICAL CVEs in the image.
+
+## Audit completeness observed on 2026-10-14
+
+The request audit is best effort: failed requests before a response are absent, and the bounded background queue discards entries when full. Peak stress records 201,051 audit drops while all client HTTP requests succeed. Response success therefore cannot prove durable or complete audit coverage ([benchmark evidence](./benchmarks.md#full-k6-schedules), [ledger details](./cost-tracking.md)). Security scans were not rerun as part of this benchmark.

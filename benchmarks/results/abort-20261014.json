@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "date": "2026-10-14T11:17:27.987Z",
+    "node": "v22.14.0",
+    "host": {
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "cpus": 6,
+      "totalMemMB": 8940
+    },
+    "autocannon": "8.0.0"
+  },
+  "cases": {
+    "stream_abort_mid_generation": {
+      "clients": 40,
+      "abortAfterMs": 400,
+      "upstreamInflightAtAbort": 40,
+      "upstreamInflightZeroAfterMs": 71,
+      "gatewayInFlightGaugeBefore": 1,
+      "gatewayInFlightGaugeAfter": 41
+    },
+    "nonstream_abort_while_upstream_slow": {
+      "clients": 40,
+      "abortAfterMs": 300,
+      "upstreamInflightAtAbort": 40,
+      "upstreamInflightZeroAfterMs": 65,
+      "gatewayInFlightGaugeBefore": 41,
+      "gatewayInFlightGaugeAfter": 81
+    }
+  }
+}

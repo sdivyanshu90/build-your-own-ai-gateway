@@ -1,3 +1,4 @@
 .state.json
 node_modules/
 results/profile/
+results/profile-*/

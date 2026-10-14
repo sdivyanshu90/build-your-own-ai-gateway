@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "date": "2026-10-14T10:59:54.352Z",
+    "node": "v22.14.0",
+    "host": {
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "cpus": 6,
+      "totalMemMB": 8940
+    },
+    "autocannon": "8.0.0"
+  },
+  "cases": [
+    {
+      "total": 300,
+      "concurrency": 100,
+      "codes": {
+        "200": 60,
+        "429": 240
+      },
+      "retryAfterSample": "60",
+      "wallMs": 362,
+      "rpmLimit": 60,
+      "allowed": 60,
+      "rejected429": 240,
+      "exact": true
+    },
+    {
+      "total": 1000,
+      "concurrency": 200,
+      "codes": {
+        "200": 100,
+        "429": 900
+      },
+      "retryAfterSample": "60",
+      "wallMs": 781,
+      "rpmLimit": 100,
+      "allowed": 100,
+      "rejected429": 900,
+      "exact": true
+    },
+    {
+      "total": 2000,
+      "concurrency": 200,
+      "codes": {
+        "200": 600,
+        "429": 1400
+      },
+      "retryAfterSample": "60",
+      "wallMs": 1510,
+      "rpmLimit": 600,
+      "allowed": 600,
+      "rejected429": 1400,
+      "exact": true
+    },
+    {
+      "total": 20,
+      "concurrency": 4,
+      "codes": {
+        "200": 3,
+        "429": 17
+      },
+      "retryAfterSample": "60",
+      "wallMs": 44,
+      "tpmLimit": 5000,
+      "note": "~1000-token prompts against a 5000 TPM budget",
+      "allowed": 3
+    }
+  ],
+  "burstReasonObserved": "see README: burst window cannot bind before RPM (analysis in docs/RATE-LIMITING.md)"
+}

@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "date": "2026-10-14T11:00:34.935Z",
+    "node": "v22.14.0",
+    "host": {
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "cpus": 6,
+      "totalMemMB": 8940
+    },
+    "autocannon": "8.0.0"
+  },
+  "idle": "132.2MiB / 512MiB|2.19%",
+  "load": {
+    "connections": 64,
+    "durationS": 30,
+    "rps": 894,
+    "requests": 26809,
+    "non2xx": 0,
+    "errors": 0,
+    "timeouts": 0,
+    "latencyMs": {
+      "mean": 71.01,
+      "p50": 70,
+      "p90": 86,
+      "p97_5": 94,
+      "p99": 100,
+      "p99_9": 113,
+      "max": 154
+    },
+    "loadgenCpuPct": 8
+  },
+  "loadContainer": {
+    "samples": 11,
+    "maxMemMiB": 133.5,
+    "avgCpuPct": 116.8,
+    "maxCpuPct": 119.55
+  },
+  "afterSettle": "132.4MiB / 512MiB|3.20%",
+  "rssFromMetrics": [
+    "process_cpu_seconds_total{service=\"ai-gateway\"} 265.595358",
+    "process_resident_memory_bytes{service=\"ai-gateway\"} 189296640",
+    "nodejs_heap_size_used_bytes{service=\"ai-gateway\"} 55100016"
+  ]
+}

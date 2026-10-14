@@ -1,0 +1,134 @@
+{
+  "meta": {
+    "date": "2026-10-14T10:59:51.404Z",
+    "node": "v22.14.0",
+    "host": {
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "cpus": 6,
+      "totalMemMB": 8940
+    },
+    "autocannon": "8.0.0"
+  },
+  "mockLatencyMs": 20,
+  "runs": {
+    "hit_c1": {
+      "connections": 1,
+      "durationS": 15,
+      "rps": 444,
+      "requests": 6661,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 1.7,
+        "p50": 2,
+        "p90": 2,
+        "p97_5": 3,
+        "p99": 4,
+        "p99_9": 7,
+        "max": 19
+      },
+      "loadgenCpuPct": 7
+    },
+    "miss_c1": {
+      "connections": 1,
+      "durationS": 15,
+      "rps": 36,
+      "requests": 540,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 27.1,
+        "p50": 27,
+        "p90": 28,
+        "p97_5": 29,
+        "p99": 31,
+        "p99_9": 33,
+        "max": 33
+      },
+      "loadgenCpuPct": 2
+    },
+    "uncacheable_c1": {
+      "connections": 1,
+      "durationS": 15,
+      "rps": 38,
+      "requests": 566,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 25.93,
+        "p50": 26,
+        "p90": 27,
+        "p97_5": 28,
+        "p99": 28,
+        "p99_9": 34,
+        "max": 34
+      },
+      "loadgenCpuPct": 1
+    },
+    "hit_c16": {
+      "connections": 16,
+      "durationS": 15,
+      "rps": 1806,
+      "requests": 27094,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 8.36,
+        "p50": 8,
+        "p90": 10,
+        "p97_5": 13,
+        "p99": 16,
+        "p99_9": 20,
+        "max": 24
+      },
+      "loadgenCpuPct": 14
+    },
+    "miss_c16": {
+      "connections": 16,
+      "durationS": 15,
+      "rps": 406,
+      "requests": 6083,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 38.87,
+        "p50": 39,
+        "p90": 42,
+        "p97_5": 46,
+        "p99": 49,
+        "p99_9": 60,
+        "max": 61
+      },
+      "loadgenCpuPct": 5
+    },
+    "uncacheable_c16": {
+      "connections": 16,
+      "durationS": 15,
+      "rps": 419,
+      "requests": 6289,
+      "non2xx": 0,
+      "errors": 0,
+      "timeouts": 0,
+      "latencyMs": {
+        "mean": 37.64,
+        "p50": 37,
+        "p90": 42,
+        "p97_5": 46,
+        "p99": 50,
+        "p99_9": 56,
+        "max": 57
+      },
+      "loadgenCpuPct": 5
+    }
+  },
+  "statusSamples": {
+    "first": "MISS",
+    "second": "HIT",
+    "uncacheable": "SKIP"
+  }
+}

@@ -13,7 +13,8 @@ for _ in $(seq 1 30); do [ -z "$(docker ps -aq -f "name=^${NAME}$")" ] && break;
 EXTRA=()
 for kv in "$@"; do EXTRA+=(-e "$kv"); done
 PROFILE_MOUNT=()
-if [ -n "${GW_PROFILE_DIR:-}" ]; then mkdir -p "$GW_PROFILE_DIR" && chmod 777 "$GW_PROFILE_DIR" && PROFILE_MOUNT=(-v "$GW_PROFILE_DIR:/prof"); fi
+NODE_ARGS=()
+if [ -n "${GW_PROFILE_DIR:-}" ]; then mkdir -p "$GW_PROFILE_DIR" && chmod 777 "$GW_PROFILE_DIR" && PROFILE_MOUNT=(-v "$GW_PROFILE_DIR:/prof"); NODE_ARGS=(--cpu-prof --cpu-prof-dir=/prof); fi
 # Throwaway credentials for the local benchmark gateway. The encryption key must stay
 # stable across restarts (seeded provider keys are stored encrypted), so it is derived
 # from a fixed label rather than committed. Override both via the environment.
@@ -29,7 +30,7 @@ docker run -d --rm --name "$NAME" --network host \
   -e ADMIN_API_KEY="$BENCH_ADMIN_KEY" \
   -e HEALTH_MONITOR_ENABLED=false -e REGISTRY_CACHE_TTL_SECONDS=3600 \
   "${EXTRA[@]}" \
-  node:22.14-bookworm-slim node --enable-source-maps dist/index.js >/dev/null
+  node:22.14-bookworm-slim node "${NODE_ARGS[@]}" --enable-source-maps dist/index.js >/dev/null
 for i in $(seq 1 60); do
   if curl -fs http://127.0.0.1:18080/ready >/dev/null 2>&1; then echo "gateway ready (${*:-defaults})"; exit 0; fi
   sleep 1

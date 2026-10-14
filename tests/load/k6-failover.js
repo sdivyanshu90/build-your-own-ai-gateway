@@ -17,6 +17,7 @@ const PRIMARY_PROVIDER_ID = __ENV.PRIMARY_PROVIDER_ID || '';
 const MODEL = __ENV.MODEL || 'gpt-4o';
 
 const serverErrors = new Rate('server_errors');
+const controlErrors = new Rate('control_errors');
 
 export const options = {
   scenarios: {
@@ -39,6 +40,7 @@ export const options = {
   thresholds: {
     // The whole point: failover keeps 5xx at zero and latency bounded.
     server_errors: ['rate<0.001'],
+    control_errors: ['rate==0'],
     'http_req_duration{scenario:load}': ['p(95)<1000'],
   },
 };
@@ -47,11 +49,16 @@ function setPrimaryActive(active) {
   if (!ADMIN_KEY || !PRIMARY_PROVIDER_ID) {
     return;
   }
-  http.patch(
+  const response = http.patch(
     `${BASE_URL}/admin/providers/${PRIMARY_PROVIDER_ID}`,
     JSON.stringify({ isActive: active }),
     { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ADMIN_KEY}` } },
   );
+  controlErrors.add(response.status < 200 || response.status >= 300);
+  check(response, { 'provider state update succeeds': (r) => r.status >= 200 && r.status < 300 });
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Provider update failed: HTTP ${response.status}`);
+  }
 }
 
 export function killPrimary() {

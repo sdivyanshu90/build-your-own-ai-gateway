@@ -1,0 +1,74 @@
+{
+  "capturedAt": "2026-10-14T10:49:10.370241+00:00",
+  "commit": "c065a6dc1b578cc786041366684da5a9d333b9cf",
+  "sourceChanges": "benchmark harness only; gateway src/ unchanged",
+  "commands": {
+    "kernel": {
+      "exitCode": 0,
+      "stdout": "Linux Divanshu 6.18.54.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct  6 19:13:07 UTC 2026 x86_64 GNU/Linux\n",
+      "stderr": ""
+    },
+    "cpu": {
+      "exitCode": 0,
+      "stdout": "Architecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  6\nOn-line CPU(s) list:                     0-5\nVendor ID:                               AuthenticAMD\nModel name:                              AMD Ryzen 7 8845HS w/ Radeon 780M Graphics\nCPU family:                              25\nModel:                                   117\nThread(s) per core:                      2\nCore(s) per socket:                      3\nSocket(s):                               1\nStepping:                                2\nBogoMIPS:                                7585.80\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves avx512_bf16 clzero xsaveerptr arat avx512vbmi umip avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq rdpid fsrm\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               96 KiB (3 instances)\nL1i cache:                               96 KiB (3 instances)\nL2 cache:                                3 MiB (3 instances)\nL3 cache:                                16 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-5\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP always-on; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Mitigation; Clear CPU buffers\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n",
+      "stderr": ""
+    },
+    "topology": {
+      "exitCode": 0,
+      "stdout": "CPU CORE SOCKET ONLINE\n  0    0      0    yes\n  1    0      0    yes\n  2    1      0    yes\n  3    1      0    yes\n  4    2      0    yes\n  5    2      0    yes\n",
+      "stderr": ""
+    },
+    "memory": {
+      "exitCode": 0,
+      "stdout": "               total        used        free      shared  buff/cache   available\nMem:      9374404608   961208320  3741057024     8695808  4886351872  8413196288\nSwap:     4294967296           0  4294967296\n",
+      "stderr": ""
+    },
+    "docker": {
+      "exitCode": 0,
+      "stdout": {
+        "ServerVersion": "29.9.0",
+        "KernelVersion": "6.18.54.1-microsoft-standard-WSL2",
+        "OperatingSystem": "Ubuntu 26.04.1 LTS",
+        "OSType": "linux",
+        "Architecture": "x86_64",
+        "NCPU": 6,
+        "MemTotal": 9374404608,
+        "CgroupVersion": "2",
+        "Driver": "overlayfs"
+      },
+      "stderr": ""
+    },
+    "gpu": {
+      "exitCode": 0,
+      "stdout": "name, memory.total [MiB], temperature.gpu, driver_version\nNVIDIA GeForce RTX 3050 Laptop GPU, 4096 MiB, 47, 591.91\n",
+      "stderr": ""
+    },
+    "node": {
+      "exitCode": 0,
+      "stdout": "v22.14.0\n",
+      "stderr": ""
+    },
+    "images": {
+      "exitCode": 0,
+      "stdout": "[\"node@sha256:1c18d9ab3af4585870b92e4dbc5cac5a0dc77dd13df1a5905cea89fc720eb05b\"]\n[\"postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea\"]\n[\"redis@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499\"]\n",
+      "stderr": ""
+    }
+  },
+  "allocation": {
+    "depsCPUs": "0,1",
+    "gatewayCPUs": "2,3",
+    "mockCPUs": "4",
+    "loadGeneratorCPUs": "5",
+    "gatewayMemoryMiB": 512,
+    "postgresMemoryMiB": 512,
+    "redisMemoryMiB": 256,
+    "mockLatencyMs": 20
+  },
+  "versions": {
+    "postgres": "16.15",
+    "redis": "7.4.11",
+    "autocannon": "8.0.0",
+    "k6": "2.3.0",
+    "ollama": "0.40.4"
+  }
+}

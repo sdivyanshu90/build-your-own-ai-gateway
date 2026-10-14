@@ -16,8 +16,8 @@ const f = (x, d = 1) => (x === null || x === undefined ? 'n/a' : Number(x).toFix
 const row = (...c) => `| ${c.join(' | ')} |`;
 
 for (const [title, label] of [
-  ['BASELINE', labelA],
-  ['AFTER', labelB],
+  [labelA || 'BASELINE', labelA],
+  [labelB || 'AFTER', labelB],
 ]) {
   const o = load(`overhead${sfx(label)}`);
   if (o) {
@@ -103,6 +103,7 @@ for (const [title, label] of [
         'p99 ms',
         'max ms',
         'non-2xx',
+        'transport errors (incl. timeouts)',
         'gw CPU % (of 1 core)',
         'gw mem MiB',
         'mock CPU %',
@@ -111,7 +112,7 @@ for (const [title, label] of [
         'pg commits',
       ),
     );
-    console.log(row(...Array(12).fill('---')));
+    console.log(row(...Array(13).fill('---')));
     for (const r of t.steps)
       console.log(
         row(
@@ -121,6 +122,7 @@ for (const [title, label] of [
           f(r.latencyMs.p99),
           f(r.latencyMs.max),
           r.non2xx,
+          r.errors,
           r.gatewayContainer?.avgCpuPct,
           r.gatewayContainer?.maxMemMiB,
           r.mockCpuPct,
@@ -179,12 +181,8 @@ for (const [title, label] of [
     );
   }
 }
-for (const [name, label] of [
-  ['failover', ''],
-  ['breaker', ''],
-  ['outage', ''],
-]) {
-  const d = load(name);
+for (const name of ['failover', 'breaker', 'outage']) {
+  const d = load(`${name}${sfx(labelA)}`);
   if (!d) continue;
   console.log(`\n### ${name}\n`);
   if (name === 'failover') {

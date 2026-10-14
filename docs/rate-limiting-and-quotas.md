@@ -35,7 +35,7 @@ One script call does, atomically:
 
 Atomicity matters: the integration test fires 30 concurrent checks at a limit of 10 and observes exactly 10 admitted
 (`tests/integration/rate-limiting.test.ts`). The benchmark repeats this at much higher concurrency
-([benchmarks.md](./benchmarks.md#rate-limiter-correctness-under-burst)).
+([benchmarks.md](./benchmarks.md#rate-limiter-correctness-under-burst)): the latest 300/1,000/2,000-request bursts admit exactly 60/100/600 at those RPM limits, with every remaining request HTTP 429; concurrency is 100/200/200.
 
 Properties:
 
@@ -68,14 +68,14 @@ Each admitted request adds one member to the RPM, TPM (and burst) sets, so Redis
 
 The original TPM implementation summed **every** member of the TPM set on each call (`ZRANGE 0 -1` plus a Lua `string.match` per member), making the cost of each
 check proportional to the requests in the window - quadratic in the request rate. The measured effect and the fix (running sum, O(expired) per call) are in
-[benchmarks.md](./benchmarks.md#what-the-benchmark-found).
+[the archived October 4 report](./archive/benchmarks-20261004.md#what-the-benchmark-found).
+
+In the October 14 run, the 75-second limiter-enabled sweep peaks at **1,016 rps** (c=128, p50 124 ms, p99 168 ms). Separate 75-second c=64 runs measure **888 rps on / 957 rps off**. Redis `EVALSHA` averages 12.62–19.78 µs/call across sweep points, aggregating **all Lua scripts**, including warm-up; this does not isolate limiter-script cost. See [current results](./benchmarks.md#limiter-onoff-75-second-comparisons).
 
 ## Failure behaviour
 
 `RateLimiter.check` is awaited on every request and neither it nor the routes guard it, so the rate limiter makes Redis a hard dependency. Measured with Redis stopped
-([benchmarks.md](./benchmarks.md#dependency-outages)): 3 of 8 probe requests returned HTTP 500 within ~0.3 s and 5 had not completed when the client gave up after 20 s (ioredis keeps commands
-queued while it reconnects). The first successful request followed ~2.8 s after Redis came back. To trade enforcement for availability run with `RATE_LIMIT_ENABLED=false`; a proper fix would be
-a short command timeout plus fail-open.
+([benchmarks.md](./benchmarks.md#dependency-outages)): **1 of 8** probes returned HTTP 500 and **7 of 8** reached the 20-second client deadline. These deadlines are censored observations, not completed server latencies. The first successful recovery probe arrived **1,820 ms** after Redis restarted. `RATE_LIMIT_ENABLED=false` bypasses the limiter, but this outage run did not establish bounded latency for every other Redis-dependent path. A proper fix needs bounded command timeouts and an explicit enforcement policy.
 
 ## Operating it
 

@@ -71,4 +71,4 @@ Every cache method catches Redis errors and degrades: `get` -> miss (returns `nu
 Default TTL 1 hour. There is no invalidation on provider/model changes: after swapping the model behind a name (or
 changing prices) flush manually. Provider-side model updates change answers without the gateway noticing.
 
-Measured hit vs miss latency: [benchmarks.md](./benchmarks.md#cache-hit-vs-miss).
+Measured on 2026-10-14: at c=1, HIT p50 **2 ms** / **444 rps**, MISS **27 ms** / **36 rps**, SKIP **26 ms** / **38 rps**. At c=16, HIT **8 ms** / **1,806 rps**, MISS **39 ms** / **406 rps**, SKIP **37 ms** / **419 rps**. HIT/MISS/SKIP response statuses are verified. These 15-second local-mock points are separate from sustained throughput capacity ([report](./benchmarks.md#cache-hit-vs-miss)).

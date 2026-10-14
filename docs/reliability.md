@@ -76,7 +76,9 @@ Properties:
 - Failures counted: only retryable errors (5xx, 429, timeouts, network, gateway-side 401-404). Client errors never trip it.
 - Manual override: `POST /admin/circuit-breakers/{providerId}/reset` deletes all keys (-> CLOSED).
 
-Measured open/half-open/closed timings are in [benchmarks.md](./benchmarks.md#circuit-breaker-timing).
+The October 14 breaker test configures a **5,000 ms** open timeout: CLOSED at 2 ms → OPEN at 622 ms → HALF_OPEN at 5,667 ms → CLOSED at 5,769 ms. It opens after exactly five failures, sends zero upstream requests while OPEN, and serves 116/116 successful clients through fallback. OPEN→HALF_OPEN is 5,045 ms; healing the provider→CLOSED is 2,112 ms. These measured timings use benchmark settings, rather than the 30-second default ([report](./benchmarks.md#circuit-breaker-timing)).
+
+The six mock failover cases return 3,120/3,120 successes. Hanging-primary p99 is 1,554.47 ms with a 1,500 ms provider timeout; healthy p50 is 35.91 ms. The real GPU-backed model also returns 20/20 failover successes.
 
 ### Interaction with LATENCY_BASED
 
@@ -107,14 +109,20 @@ anywhere takes the replica down gracefully rather than leaving it in an undefine
 
 ## Request-path dependencies
 
-| Dependency                   | Hard dependency on the request path?                                                                                                                                                                                                               |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Redis (auth cache)           | No - falls back to Postgres.                                                                                                                                                                                                                       |
-| Redis (rate limiter)         | **Yes** - `RateLimiter.check` is awaited on every request and not guarded. Measured with Redis stopped: HTTP 500 for some requests and no answer within 20 s for others (ioredis offline queue). Set `RATE_LIMIT_ENABLED=false` to run without it. |
-| Redis (breaker / LB / cache) | No - fail open / random / miss.                                                                                                                                                                                                                    |
-| Redis (spend counters)       | Reads and writes swallow errors (budget check fails open: spend reads as 0).                                                                                                                                                                       |
-| PostgreSQL (auth)            | Only on auth-cache miss.                                                                                                                                                                                                                           |
-| PostgreSQL (request log)     | Write errors are swallowed; since the queue change the insert runs in the background (it used to be awaited on the request path).                                                                                                                  |
+| Dependency                   | Hard dependency on the request path?                                                                                                                                                                                                                                                                 |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Redis (auth cache)           | No - falls back to Postgres.                                                                                                                                                                                                                                                                         |
+| Redis (rate limiter)         | **Yes** - `RateLimiter.check` is awaited on every request and not guarded. Latest Redis-down probe: 1/8 HTTP 500, 7/8 client deadlines at 20 s; first successful recovery probe after 1.82 s. `RATE_LIMIT_ENABLED=false` bypasses this check; other Redis waits were not bounded by this experiment. |
+| Redis (breaker / LB / cache) | No - fail open / random / miss.                                                                                                                                                                                                                                                                      |
+| Redis (spend counters)       | Reads and writes swallow errors (budget check fails open: spend reads as 0).                                                                                                                                                                                                                         |
+| PostgreSQL (auth)            | Only on auth-cache miss.                                                                                                                                                                                                                                                                             |
+| PostgreSQL (request log)     | Write errors are swallowed; since the queue change the insert runs in the background (it used to be awaited on the request path).                                                                                                                                                                    |
 
 The measured client-visible behaviour during Redis and PostgreSQL outages is in
 [benchmarks.md](./benchmarks.md#dependency-outages).
+
+## Cancellation and audit limits observed on 2026-10-14
+
+Forty aborted streams and forty aborted non-streaming requests drain upstream work in 71 ms and 65 ms respectively, but `gateway_in_flight_requests` leaks +40 in each case. Completed-stream counters remain correct. The earlier abort hook does not resolve this measured gauge leak; do not infer current load from this gauge after disconnects.
+
+Request logs use a 1,000-write background queue. Peak k6 stress records 201,051 discarded audit entries despite zero HTTP failures. Cached-auth requests tolerate PostgreSQL connection refusal (8/8 chat, 3/3 streams), but cold-auth availability, blackholed connections, and durable audit writes were not established ([evidence](./benchmarks.md)).

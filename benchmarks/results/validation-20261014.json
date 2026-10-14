@@ -1,0 +1,18 @@
+{
+  "validatedAt": "2026-10-14T12:08:40.601960+00:00",
+  "unitTestsPassed": 140,
+  "integrationE2ESecurityTestsPassed": 66,
+  "rawResultsConsistent": true,
+  "syntaxAndDiffChecksPassed": true,
+  "allK6ClientThresholdsPassed": true,
+  "gatewaySourceUnchanged": true,
+  "benchmarkContainersRemoved": true,
+  "knownFindings": [
+    "in-flight gauge leaks +40 per 40 client aborts",
+    "Redis outage: 1 HTTP 500 and 7 client deadlines",
+    "peak-stress audit queue drops: 201051",
+    "stress maximum coincides with host monitor gap",
+    "future-row default-partition creation failure",
+    "cached token usage detail omitted"
+  ]
+}

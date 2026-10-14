@@ -1,0 +1,11 @@
+== partition pitfall check ==
+INSERT 0 1
+      landed_in       
+----------------------
+ request_logs_default
+(1 row)
+
+ERROR:  updated partition constraint for default partition "request_logs_default" would be violated by some row
+CONTEXT:  SQL statement "CREATE TABLE IF NOT EXISTS request_logs_2031_03 PARTITION OF request_logs FOR VALUES FROM ('2031-03-01') TO ('2031-04-01')"
+PL/pgSQL function create_request_logs_partition(integer,integer) line 7 at EXECUTE
+DELETE 1

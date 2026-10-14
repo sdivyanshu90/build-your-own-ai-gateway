@@ -1,0 +1,65 @@
+total sampled: 111846 ms over 88293 samples
+
+== top functions (self time) ==
+ 30.4%    33969 ms  (garbage collector)  (native):0
+ 25.5%    28490 ms  (idle)  (native):0
+  4.7%     5249 ms  writev  (native):0
+  1.6%     1779 ms  runMicrotasks  (native):0
+  1.5%     1722 ms  (program)  (native):0
+  1.5%     1660 ms  writeUtf8String  (native):0
+  1.3%     1501 ms  is  node_modules/drizzle-orm/entity.js:3
+  0.9%     1010 ms  (anonymous)  node_modules/drizzle-orm/sql/sql.js:83
+  0.9%      979 ms  NodeError  node:internal/errors:466
+  0.5%      575 ms  buildQueryFromSourceParams  node_modules/drizzle-orm/sql/sql.js:70
+  0.5%      524 ms  (anonymous)  (native):0
+  0.4%      419 ms  _parse  node_modules/zod/v3/types.js:1934
+  0.4%      417 ms  Command  node_modules/ioredis/built/Command.js:37
+  0.4%      416 ms  (anonymous)  node_modules/ioredis/built/utils/Commander.js:74
+  0.3%      372 ms  sendCommand  node_modules/ioredis/built/Redis.js:338
+  0.3%      344 ms  writevGeneric  node:internal/stream_base_commons:121
+  0.3%      340 ms  processTicksAndRejections  node:internal/process/task_queues:72
+  0.3%      328 ms  readJson  dist/providers/base.js:101
+  0.3%      321 ms  set natives  (native):0
+  0.3%      317 ms  setHeader  node:_http_outgoing:697
+  0.3%      316 ms  DOMException  node:internal/per_context/domexception:52
+  0.3%      314 ms  deprecate  node:internal/util:149
+  0.3%      314 ms  chat  dist/providers/openai.js:100
+  0.3%      313 ms  buildInsertQuery  node_modules/drizzle-orm/pg-core/dialect.js:356
+  0.3%      311 ms  __name  node:internal/deps/undici/undici:4
+  0.3%      288 ms  cloneQueryConfig  node_modules/pg/lib/utils.js:171
+  0.3%      287 ms  _storeHeader  node:_http_outgoing:454
+  0.2%      245 ms  emit  node:events:465
+  0.2%      243 ms  _parse  node_modules/secure-json-parse/index.js:17
+  0.2%      237 ms  (anonymous)  dist/routes/completions.js:26
+
+== top files/packages ==
+ 66.7%    74570 ms  (native)
+  5.4%     6010 ms  node:internal/deps/undici/undici
+  4.2%     4714 ms  node_modules/drizzle-orm
+  3.0%     3366 ms  node_modules/ioredis
+  1.5%     1659 ms  node:internal/webstreams/readablestream
+  1.3%     1419 ms  node_modules/fastify
+  1.2%     1291 ms  node_modules/zod
+  1.1%     1178 ms  node:internal/errors
+  0.8%      864 ms  node:internal/stream_base_commons
+  0.7%      818 ms  node:_http_outgoing
+  0.7%      790 ms  node:internal/streams/readable
+  0.7%      771 ms  node:events
+  0.7%      735 ms  node_modules/pg
+  0.6%      622 ms  dist/services/router.js
+  0.5%      590 ms  node:internal/process/task_queues
+  0.5%      557 ms  node:_http_server
+  0.5%      515 ms  dist/providers/base.js
+  0.4%      487 ms  node_modules/prom-client
+  0.4%      478 ms  node:net
+  0.4%      456 ms  node_modules/helmet
+  0.4%      418 ms  node:internal/perf/observe
+  0.4%      406 ms  node_modules/pg-pool
+  0.4%      402 ms  node_modules/pg-protocol
+  0.4%      392 ms  node:internal/streams/writable
+  0.3%      379 ms  dist/providers/openai.js
+  0.3%      357 ms  node:internal/util
+  0.3%      341 ms  node:internal/abort_controller
+  0.3%      332 ms  dist/services/cost-tracker.js
+  0.3%      316 ms  node:internal/per_context/domexception
+  0.3%      288 ms  dist/routes/http.js

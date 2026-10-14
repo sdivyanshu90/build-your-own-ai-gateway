@@ -21,9 +21,8 @@ and ad-hoc retry/failover logic scattered across application code with one harde
 - **Cost control** — route cheap requests to cheaper providers, estimate and record spend per
   request, and cap monthly spend per API key.
 - **Performance** — a semantic cache returns identical deterministic responses with zero
-  provider latency; the gateway's own overhead is measured in [docs/benchmarks.md](./docs/benchmarks.md) (tens of milliseconds at concurrency 1 before the performance fixes; the earlier "few milliseconds" claim was not substantiated).
-- **Compliance** — every request is logged with a full audit trail (key, provider, tokens,
-  cost, latency, status, cache hit, failover count).
+  provider latency; the gateway's own overhead is measured in [docs/benchmarks.md](./docs/benchmarks.md) (2026-10-14: +6 ms p50 at concurrency 1, median across five paired runs).
+- **Audit logging** — a bounded background queue records successful calls and streams with key, provider, tokens, cost, latency, status, cache hit, and failover count. Failed requests and queue overflow leave gaps; peak stress dropped 201,051 entries.
 - **Simplicity** — zero client-side changes; a drop-in replacement for the OpenAI base URL.
 
 **Supported providers (Day 1):** OpenAI, Anthropic (Claude), Google Gemini, Cohere, Mistral.
@@ -47,16 +46,16 @@ curl localhost:8080/health
 ### Business requirements
 
 - **Reliability SLA** — target 99.9% availability for the gateway tier. No single provider is
-  a hard dependency; the gateway degrades gracefully when its own dependencies (Redis) blip.
+  a hard dependency when alternatives are configured. Redis remains a hard dependency through the limiter: the latest outage probe produced one HTTP 500 and seven 20-second client deadlines.
 - **Cost control** — visibility into per-key, per-provider, per-model spend, and the ability to
   enforce a monthly budget per key.
-- **Compliance** — a durable, queryable audit trail of every request, retained per policy.
+- **Compliance** — requirement: a durable, queryable audit trail of every request, retained per policy. The current implementation does not meet completeness under peak load.
 
 ### Technical requirements
 
 - **OpenAI compatibility** — existing OpenAI client libraries work unchanged.
-- **Latency targets** — design target: < 5 ms p50 overhead versus a direct provider call. **Not met** by the measured baseline (15-24 ms at c=1, see [docs/benchmarks.md](./docs/benchmarks.md)).
-- **Throughput goals** — design target: ~10,000 RPS per instance on a 4-vCPU node. **Not substantiated**: measured 61 rps (rate limiter on, one hot key) and 479 rps (limiter off) on one physical core against a 20 ms mock; scale horizontally.
+- **Latency targets** — design target: < 5 ms p50 overhead versus a direct provider call. **Not met** by the latest measured median (+6 ms at c=1 across five paired runs, see [docs/benchmarks.md](./docs/benchmarks.md)).
+- **Throughput goals** — design target: ~10,000 RPS per instance on a 4-vCPU node. **Not substantiated**: the latest 75-second sweep peaks at 1,016 rps at c=128 on one WSL-reported physical core against a 20 ms mock. Separate c=64 runs measure 888 rps with the limiter on and 957 rps off. Four-vCPU and horizontal capacity were not measured.
 
 ### Non-functional requirements
 
@@ -183,7 +182,7 @@ flowchart TB
 | Redis unavailable                    | Breaker fails open; LB random; cache → miss; auth → DB. **Rate limiter does not degrade: requests 500 or hang (measured)**            | **No**        |
 | PostgreSQL unavailable (reads)       | Auth falls back to Redis cache; registry serves last snapshot                                                                         | Partial       |
 | PostgreSQL unavailable (writes)      | Request-log writes are dropped/logged; spend counters are Redis (unaffected); request still served (measured with connection refused) | Yes           |
-| Client disconnects mid-request       | AbortSignal cancels the upstream call                                                                                                 | Yes           |
+| Client disconnects mid-request       | Upstream cancellation drains in 65–71 ms; in-flight gauge leaks +40 per 40 aborts                                                     | Yes           |
 | Process receives SIGTERM             | Drains in-flight requests (≤30s), then closes deps                                                                                    | Yes           |
 
 ---
@@ -415,21 +414,22 @@ Highlights:
 
 ### 8.1 Metrics reference
 
-| Metric                                      | Type      | Labels                     | Description                 |
-| ------------------------------------------- | --------- | -------------------------- | --------------------------- |
-| `gateway_http_requests_total`               | counter   | method, route, status_code | HTTP requests handled       |
-| `gateway_http_request_duration_seconds`     | histogram | method, route, status_code | End-to-end request time     |
-| `gateway_provider_requests_total`           | counter   | provider, model, outcome   | Upstream calls              |
-| `gateway_provider_request_duration_seconds` | histogram | provider, model            | Upstream call time          |
-| `gateway_provider_errors_total`             | counter   | provider, kind             | Provider errors by class    |
-| `gateway_tokens_total`                      | counter   | provider, model, direction | Tokens processed            |
-| `gateway_cost_usd_total`                    | counter   | provider, model            | Estimated spend             |
-| `gateway_cache_events_total`                | counter   | status                     | Cache HIT/MISS/SKIP/BYPASS  |
-| `gateway_rate_limited_total`                | counter   | reason                     | Rejections by dimension     |
-| `gateway_failovers_total`                   | counter   | —                          | Failover hops               |
-| `gateway_streaming_ttfb_seconds`            | histogram | provider, model            | Time to first byte          |
-| `gateway_circuit_state`                     | gauge     | provider                   | 0=CLOSED,1=HALF_OPEN,2=OPEN |
-| `gateway_in_flight_requests`                | gauge     | —                          | Concurrent requests         |
+| Metric                                      | Type      | Labels                     | Description                                                                                 |
+| ------------------------------------------- | --------- | -------------------------- | ------------------------------------------------------------------------------------------- |
+| `gateway_http_requests_total`               | counter   | method, route, status_code | HTTP requests handled                                                                       |
+| `gateway_http_request_duration_seconds`     | histogram | method, route, status_code | End-to-end request time                                                                     |
+| `gateway_provider_requests_total`           | counter   | provider, model, outcome   | Upstream calls                                                                              |
+| `gateway_provider_request_duration_seconds` | histogram | provider, model            | Upstream call time                                                                          |
+| `gateway_provider_errors_total`             | counter   | provider, kind             | Provider errors by class                                                                    |
+| `gateway_tokens_total`                      | counter   | provider, model, direction | Tokens processed                                                                            |
+| `gateway_cost_usd_total`                    | counter   | provider, model            | Estimated spend                                                                             |
+| `gateway_cache_events_total`                | counter   | status                     | Cache HIT/MISS/SKIP/BYPASS                                                                  |
+| `gateway_rate_limited_total`                | counter   | reason                     | Rejections by dimension                                                                     |
+| `gateway_failovers_total`                   | counter   | —                          | Failover hops                                                                               |
+| `gateway_streaming_ttfb_seconds`            | histogram | provider, model            | Time to first byte                                                                          |
+| `gateway_circuit_state`                     | gauge     | provider                   | 0=CLOSED,1=HALF_OPEN,2=OPEN                                                                 |
+| `gateway_in_flight_requests`                | gauge     | —                          | Concurrent requests; leaks on client aborts (+40 per 40 aborted clients in the latest test) |
+| `gateway_request_logs_dropped_total`        | counter   | —                          | Audit entries discarded when the bounded write queue fills                                  |
 
 Plus default Node.js runtime metrics (event loop lag, heap, GC).
 
@@ -493,7 +493,7 @@ Level guide: `error` = a request failed (5xx) or a dependency error; `warn` = a 
   reachable only from the gateway security group; admin endpoints additionally restricted by
   network policy where possible.
 - **Audit trail** — requests that reach the router and produce a response (cache hits, successful
-  calls, streams) are written to the partitioned `request_logs`; requests rejected earlier (401/403/
+  calls, streams) are queued for the partitioned `request_logs`; the 1,000-write queue can overflow (201,051 dropped entries in the latest stress run). Requests rejected earlier (401/403/
   404/422/429) or that fail on every provider (503) are **not** (they appear only in application
   logs and metrics). Retention via partition pruning. For tamper evidence, ship logs to an
   append-only store/SIEM.
@@ -509,18 +509,26 @@ Level guide: `error` = a request failed (5xx) or a dependency error; `warn` = a 
 
 ## Section 10 — Performance Characteristics
 
-The numbers in earlier revisions of this section (< 5 ms overhead, ~10,000 RPS per instance, ~200 MB baseline, per-scenario percentile table) were design estimates and were **not** backed by any
-measurement. They have been replaced by measured results; see [docs/benchmarks.md](./docs/benchmarks.md) for methodology, hardware, every table and the limitations.
+Measured on **2026-10-14**, gateway source `c065a6dc1b578cc786041366684da5a9d333b9cf`: Ryzen 7 8845HS under WSL2 with six logical CPUs, 8.7 GiB visible RAM; gateway pinned to CPUs 2,3 (one WSL-reported physical core), 512 MiB cap. Local HTTP mock upstream has 20 ms latency. Full methodology and raw evidence: [docs/benchmarks.md](./docs/benchmarks.md). Older measurements are [archived](./docs/archive/benchmarks-20261004.md); hardware and code differ, so they are not a controlled before/after comparison.
 
-Measured on 2026-10-04 (one physical core for the gateway, mock upstream with 20 ms latency, baseline code before the performance fixes):
+| Measurement            | Latest result                                                                                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Non-streaming overhead | +6 ms p50 at c=1 for both adapters, median of five paired runs; +17 ms median at c=16 (queueing included)                                                        |
+| Streaming overhead     | OpenAI c=1 TTFB +5.39 ms p50; TTFT +5.40 ms; no streaming failures                                                                                               |
+| Sustained throughput   | 75 seconds per point: 1,016 rps at c=128, p50 124 ms, p99 168 ms; zero HTTP/transport failures                                                                   |
+| Limiter comparison     | Separate 75-second c=64 runs: 888 rps on (p50 70 ms, p99 107 ms); 957 rps off (p50 65 ms, p99 95 ms)                                                             |
+| Cache                  | c=1 HIT p50 2 ms / 444 rps vs MISS 27 ms / 36 rps; c=16 HIT 8 ms / 1,806 rps vs MISS 39 ms / 406 rps                                                             |
+| Limiter correctness    | Exactly 60, 100, and 600 admissions at those RPM limits; all remaining requests HTTP 429; 5,000 TPM case admits 3 of 20                                          |
+| Failover and breaker   | 3,120/3,120 mock successes; breaker opens after five failures, no upstream traffic while OPEN; OPEN→HALF_OPEN 5,045 ms with 5,000 ms configured                  |
+| Memory                 | Warm idle after prior load 132.2 MiB; c=64 footprint check max 133.5 MiB; sustained sweep max 147.1 MiB. These are container working memory, not cold-start RSS  |
+| Full k6                | Baseline 14,556 requests / 5 min; stress 1,201,206 / 20 min; failover 8,752 HTTP requests / 3 min. Zero HTTP failures and all client thresholds pass             |
+| Local GPU model        | qwen2.5:0.5b on RTX 3050 Laptop 4 GiB; 100% GPU placement, all 25 layers offloaded, peak 67°C; gateway c=1 TTFT p50 28.17 ms; 20/20 real-model failovers succeed |
+| Microbenchmarks        | Cache-key derivation 384,493 ops/s; candidate-set key 1,007,252 ops/s                                                                                            |
+| CPU profile            | GC 30.4%, idle 25.5% of sampled wall time; these are not CPU-cycle shares                                                                                        |
 
-- **Overhead (c=1, p50):** +24 ms (OpenAI adapter), +15 ms (Anthropic adapter); streaming TTFB +14 ms.
-- **Throughput:** 61 rps with the rate limiter on and a single hot key (falling to 35-45 rps as the 60 s window fills); 479 rps with the limiter disabled.
-- **Cause found:** the rate limiter's TPM check summed the whole window per call (Redis Lua 2.9-6.1 ms per call versus 0.014 ms with the limiter off). Fixed with a running sum; the other measured
-  cost is a PostgreSQL commit per request, now moved off the request path.
-- **Memory:** ~109 MiB container memory idle and under load (limit 512 MiB).
-- **Load balancer:** O(1) for RR/WRR/Random; O(N) in the candidate count (N <= ~5) for least-connections/latency.
-- **Scaling:** the application tier is stateless; Redis is shared state and, through the limiter, a hard dependency.
+Limits measured in this run: **201,051 audit queue drops** during peak stress; client aborts drain upstream work in 65–71 ms but leak +40 in the in-flight gauge per 40 clients; Redis outage yields 1/8 HTTP 500 and 7/8 client deadlines at 20 seconds, with first successful recovery probe at 1.82 seconds. PostgreSQL connection refusal leaves cached-auth chat and streams available but does not establish durable audit writes or cold-auth availability. A future row in the default partition still blocks creation of that month's partition. Core usage matches in 4/4 local-model pairs, but cached-token detail is omitted.
+
+The 109.37-second stress maximum coincides with a 119.23-second gap in host monitoring; host/VM scheduling is a plausible contributor and gateway-only attribution is uncertain. The Windows NPU is present, but WSL exposes no accelerator device for it, so it was not benchmarked. No TLS, ingress, multi-replica, or cloud capacity result is claimed.
 
 ---
 
@@ -534,11 +542,11 @@ Full procedures in [docs/operations-runbook.md](./docs/operations-runbook.md). S
 - **11.3 Production checklist** — see §12.
 - **11.4 Zero-downtime** — RollingUpdate `maxUnavailable: 0, maxSurge: 1`; readiness gates
   traffic; `preStop` pause + 40 s grace lets in-flight requests drain.
-- **11.5 Scaling** — scale out on CPU 70% / 150 RPS-per-pod; scale Redis (cluster) when it nears
+- **11.5 Scaling** — scale out on CPU 70% / 150 RPS-per-pod; scale the Redis primary vertically when it nears
   CPU/memory limits; shard/partition PostgreSQL writes if audit volume saturates a single
   primary (read replicas for the admin/log queries first).
 - **11.6 Backup & recovery** — PostgreSQL: WAL archiving + PITR (RPO ≤ 5 min, RTO ≤ 30 min).
-  Redis: AOF everysec + periodic RDB; Redis loss is tolerable (state rebuilds) so RPO is lax.
+  Redis: AOF everysec + periodic RDB; Redis loss rebuilds volatile state but stalls requests and resets spend counters; choose RPO for those consequences.
 - **11.7 Certificate rotation** — cert-manager auto-renews ingress TLS; no app restart needed.
 - **11.8 Encryption key rotation** — roll with `ENCRYPTION_KEY=new` + `ENCRYPTION_KEY_PREVIOUS=old`,
   run `scripts/rotate-encryption-key.ts`, roll again without the previous key.
@@ -552,28 +560,30 @@ Full procedures in [docs/operations-runbook.md](./docs/operations-runbook.md). S
 
 ## Section 12 — Production Readiness Assessment
 
-| Criterion                                                                               | Status                          |
-| --------------------------------------------------------------------------------------- | ------------------------------- |
-| Single point of failure analysis — Redis is a hard dependency via the rate limiter      | ⚠️                              |
-| Circuit breaker covers all provider failure modes (5xx, timeout, network)               | ✅                              |
-| Rate limiter tested under concurrent load (Lua atomicity verified)                      | ✅                              |
-| All provider secrets encrypted at rest (AES-256-GCM)                                    | ✅                              |
-| No credentials in logs (Pino redaction configured; no automated test)                   | ⚠️                              |
-| Graceful shutdown implemented (drain bounded by SHUTDOWN_TIMEOUT_MS; no automated test) | ⚠️                              |
-| Readiness probe prevents traffic during startup                                         | ✅                              |
-| Liveness probe detects a wedged process                                                 | ✅                              |
-| Monthly request_log partitions auto-created (cronjob)                                   | ✅                              |
-| Alerting covers all critical failure modes                                              | ✅ (rules provided)             |
-| Runbooks exist for every alert                                                          | ✅                              |
-| Recovery from Redis failure (measured: ~3 s after Redis returns; hangs/500s during)     | ⚠️                              |
-| Recovery from DB failure (read vs write paths assessed)                                 | ✅                              |
-| Load test scenarios provided (baseline/stress/failover)                                 | ✅                              |
-| Security scan (Trivy) gating in CI (0 critical)                                         | ✅ (CI configured)              |
-| Dependency audit (npm audit) gating in CI (0 high)                                      | ✅ (CI configured)              |
-| Test coverage thresholds enforced (ratchet 53/70/67/53, measured 55/71/69/55)           | ⚠️ (was 95/95/90/95, never met) |
-| Integration tests pass against real PostgreSQL + Redis                                  | ✅ (testcontainers)             |
-| API backward compatibility (OpenAI clients)                                             | ✅ (wire-compatible)            |
-| Documentation complete and accurate (re-audited 2026-10-04, see docs/audit.md)          | ✅                              |
+| Criterion                                                                                                           | Status                            |
+| ------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Single point of failure analysis — Redis is a hard dependency via the rate limiter                                  | ⚠️                                |
+| Circuit breaker covers all provider failure modes (5xx, timeout, network)                                           | ✅                                |
+| Rate limiter tested under concurrent load (Lua atomicity verified)                                                  | ✅                                |
+| All provider secrets encrypted at rest (AES-256-GCM)                                                                | ✅                                |
+| No credentials in logs (Pino redaction configured; no automated test)                                               | ⚠️                                |
+| Graceful shutdown implemented (drain bounded by SHUTDOWN_TIMEOUT_MS; no automated test)                             | ⚠️                                |
+| Readiness probe prevents traffic during startup                                                                     | ✅                                |
+| Liveness probe detects a wedged process                                                                             | ✅                                |
+| Partition cronjob provided; future rows in default partition still block creation                                   | ⚠️                                |
+| Alerting covers all critical failure modes                                                                          | ✅ (rules provided)               |
+| Runbooks exist for every alert                                                                                      | ✅                                |
+| Recovery from Redis failure (1.82 s after restart; 1/8 HTTP 500, 7/8 client deadlines during)                       | ⚠️                                |
+| DB connection-refusal test: cached-auth chat 8/8 and streams 3/3 succeed; cold-auth/blackhole/durability unverified | ⚠️                                |
+| Full k6 baseline/stress/failover client thresholds pass; zero HTTP failures                                         | ✅                                |
+| Complete durable audit trail under peak stress                                                                      | ⚠️ (201,051 observed queue drops) |
+| In-flight telemetry correct after client abort                                                                      | ⚠️ (+40 gauge leak per 40 aborts) |
+| Security scan (Trivy) gating in CI (0 critical)                                                                     | ✅ (CI configured)                |
+| Dependency audit (npm audit) gating in CI (0 high)                                                                  | ✅ (CI configured)                |
+| Unit coverage ratchet 52/48/50/51 (lines/branches/functions/statements); not remeasured 2026-10-14                  | ⚠️ (was 95/95/90/95, never met)   |
+| Integration tests pass against real PostgreSQL + Redis                                                              | ✅ (testcontainers)               |
+| OpenAI core usage verified (4/4 real-model pairs); cached-token detail is omitted                                   | ⚠️                                |
+| Benchmark documentation refreshed 2026-10-14; source audit remains dated 2026-10-04                                 | ✅                                |
 
 **Note on coverage:** unit coverage thresholds are enforced in CI; the resilience primitives
 whose logic lives in Redis Lua (circuit breaker, rate limiter, Redis-backed LB strategies) are

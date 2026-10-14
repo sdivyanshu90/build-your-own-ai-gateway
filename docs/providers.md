@@ -170,3 +170,7 @@ Embeddings: unsupported -> non-retryable 400.
 The estimate is used for rate limiting (always) and for stream accounting only until the upstream
 usage arrives. Because the gateway always requests usage on streams, billed numbers use the provider's
 count wherever the provider reports one.
+
+## Latest real upstream validation (2026-10-14)
+
+Ollama qwen2.5:0.5b runs on the RTX 3050 Laptop GPU (100% GPU placement, 25/25 layers offloaded). Each streaming path/concurrency has 20 samples with zero errors; gateway c=1 TTFT p50 is 28.17 ms, direct c=1 is 22.14 ms. The sequential route order and model prefix-cache effects prevent a precise isolated-overhead claim. All 20 real-model failover requests succeed. Core usage matches in 4/4 deterministic pairs, while `prompt_tokens_details.cached_tokens` is omitted from gateway responses. Other live provider APIs were not rerun ([report](./benchmarks.md#gpu-backed-local-model)).

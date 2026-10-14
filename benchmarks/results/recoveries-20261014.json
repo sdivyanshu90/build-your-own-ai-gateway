@@ -1,0 +1,20 @@
+{
+  "profile": {
+    "initialBlockExit": 1,
+    "reason": "container-root profile ownership prevented host post-processing",
+    "recovered": true,
+    "validatedAt": "2026-10-14T11:49:47Z",
+    "samples": 88293,
+    "summary": "profile-summary-20261014.txt",
+    "archive": "profile-20261014.tar.gz"
+  },
+  "repeats": {
+    "initialBlockExit": 2,
+    "reason": "editing an executing shell script affected final bookkeeping after both measurements were saved",
+    "cleanRerunExit": 0,
+    "results": [
+      "overhead-20261014-recovery-r2.json",
+      "overhead-20261014-recovery-r3.json"
+    ]
+  }
+}

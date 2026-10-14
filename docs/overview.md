@@ -63,4 +63,4 @@ lives in Redis; durable data (keys, providers, models, request logs) lives in Po
 The code base ships with unit, integration, e2e and security suites, a Helm chart, CI, and load
 tests. The [audit notes in design-decisions.md](./design-decisions.md#known-limitations-and-open-issues)
 list what is still open. The measured behaviour - including where the previous documentation's
-performance claims did not hold - is in [benchmarks.md](./benchmarks.md).
+performance claims did not hold - is in [benchmarks.md](./benchmarks.md). The latest October 14 run measures +6 ms median p50 overhead at c=1 and 1,016 rps peak in a 75-second mock sweep. It also finds 201,051 peak-stress audit drops, an abort-gauge leak, and Redis outage stalls. These limits remain relevant despite zero HTTP failures in the complete k6 schedules.

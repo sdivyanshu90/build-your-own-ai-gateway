@@ -1,0 +1,237 @@
+{
+  "meta": {
+    "date": "2026-10-14T11:57:00.847Z",
+    "node": "v22.14.0",
+    "host": {
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "cpus": 6,
+      "totalMemMB": 8940
+    },
+    "autocannon": "8.0.0"
+  },
+  "model": "qwen2.5:0.5b",
+  "note": "mock primary (priority 1) always 503; real Ollama is the fallback. With LATENCY_BASED the first failure demotes the primary, so only request 0 needs a failover hop.",
+  "rows": [
+    {
+      "status": 200,
+      "ms": 324,
+      "provider": "ollama-local",
+      "failoverCount": "1",
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 10,
+        "total_tokens": 44
+      }
+    },
+    {
+      "status": 200,
+      "ms": 99,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 10,
+        "total_tokens": 44
+      }
+    },
+    {
+      "status": 200,
+      "ms": 71,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 10,
+        "total_tokens": 44
+      }
+    },
+    {
+      "status": 200,
+      "ms": 76,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 10,
+        "total_tokens": 44
+      }
+    },
+    {
+      "status": 200,
+      "ms": 75,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 10,
+        "total_tokens": 44
+      }
+    },
+    {
+      "status": 200,
+      "ms": 73,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 10,
+        "total_tokens": 44
+      }
+    },
+    {
+      "status": 200,
+      "ms": 65,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 10,
+        "total_tokens": 44
+      }
+    },
+    {
+      "status": 200,
+      "ms": 70,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 10,
+        "total_tokens": 44
+      }
+    },
+    {
+      "status": 200,
+      "ms": 64,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 10,
+        "total_tokens": 44
+      }
+    },
+    {
+      "status": 200,
+      "ms": 70,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 10,
+        "total_tokens": 44
+      }
+    },
+    {
+      "status": 200,
+      "ms": 69,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 35,
+        "completion_tokens": 10,
+        "total_tokens": 45
+      }
+    },
+    {
+      "status": 200,
+      "ms": 106,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 35,
+        "completion_tokens": 10,
+        "total_tokens": 45
+      }
+    },
+    {
+      "status": 200,
+      "ms": 64,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 35,
+        "completion_tokens": 10,
+        "total_tokens": 45
+      }
+    },
+    {
+      "status": 200,
+      "ms": 67,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 35,
+        "completion_tokens": 10,
+        "total_tokens": 45
+      }
+    },
+    {
+      "status": 200,
+      "ms": 69,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 35,
+        "completion_tokens": 10,
+        "total_tokens": 45
+      }
+    },
+    {
+      "status": 200,
+      "ms": 73,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 35,
+        "completion_tokens": 10,
+        "total_tokens": 45
+      }
+    },
+    {
+      "status": 200,
+      "ms": 72,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 35,
+        "completion_tokens": 10,
+        "total_tokens": 45
+      }
+    },
+    {
+      "status": 200,
+      "ms": 68,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 35,
+        "completion_tokens": 10,
+        "total_tokens": 45
+      }
+    },
+    {
+      "status": 200,
+      "ms": 68,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 35,
+        "completion_tokens": 10,
+        "total_tokens": 45
+      }
+    },
+    {
+      "status": 200,
+      "ms": 72,
+      "provider": "ollama-local",
+      "failoverCount": "0",
+      "usage": {
+        "prompt_tokens": 35,
+        "completion_tokens": 10,
+        "total_tokens": 45
+      }
+    }
+  ],
+  "mockPrimaryRequests": 1
+}
